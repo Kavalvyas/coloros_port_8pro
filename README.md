@@ -7,11 +7,14 @@
 </div>
 
 ## 简介
-- ColorOS OnePlus8T 一键自动移植打包
+- ColorOS 一键自动移植打包
 
+## 支持机型
+
+- 一加8系统（一加8、一加8Pro、一加8T）
 
 ## 测试机型及版本
-- BASE: OnePlus 8T (ColorOS_14.0.0.600)
+- BASE: OnePlus 8T (ColorOS_14.0.0.600), OnePlus 8 (ColorOS_IN2010_13.1.190), OnePlus 8 Pro (ColorOS_IN2020_13.1.0.190)
 - PORT: OnePlus 12 (ColorOS_14.0.0.800), OnePlus ACE3V(ColorOS_14.0.1.621)
 
 
@@ -27,7 +30,10 @@
 
 ## BUG
 
-- 等你发现
+- AOD亮度太低
+- 小布语音唤醒不可用
+- 关机充电不可用（会自动重启）
+- 有线耳机不可用
 
 ## 如何使用
 - 在WSL、ubuntu、deepin等Linux下

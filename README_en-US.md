@@ -10,9 +10,12 @@
 ## Intro
 - ColorOS Porting Project for OnePlus 8T
 
-## Tested devices and portroms
-- Test Base ROM: OnePlus 8T (ColorOS_14.0.0.600)
+## Supported Devices
 
+- OnePlus 8 OnePlus 8Pro OnePlus 8T
+
+## Tested devices and portroms
+- Test Base ROM:  OnePlus 8T (ColorOS_14.0.0.600), OnePlus 8 (ColorOS_IN2010_13.1.190), OnePlus 8 Pro (ColorOS_IN2020_13.1.0.190)
 - Test Port ROM: OnePlus 12 (ColorOS_14.0.0.800), OnePlus ACE3V(ColorOS_14.0.1.621)
 
 ## Working
@@ -26,6 +29,10 @@
 
 ## BUG
 
+- AOD is too dim
+- Voice trigger is not working
+- Poweroff charging is not working
+- WiredEarphone is not working
 
 ## How to use
 - On WSL、ubuntu、deepin and other Linux
