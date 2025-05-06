@@ -326,6 +326,26 @@ target_method='getMinimumSignatureSchemeVersionForTargetSdk'
 java -jar bin/apktool/APKEditor.jar b -f -i tmp/services -o tmp/services_patched.jar > /dev/null 2>&1
 cp -rf tmp/services_patched.jar build/portrom/images/system/system/framework/services.jar
 
+if [[ ${base_android_version} == 13 ]] && [[ ${port_android_version} == 14 ]];then
+    if [[ -f devices/common/a13_base_fix.zip ]];then
+        unzip -o devices/common/a13_base_fix.zip -d ${work_dir}/build/portrom/images/
+        rm -rfv build/portrom/images/odm/bin/hw/vendor.oplus.hardware.charger@1.0-service \
+            build/portrom/images/odm/bin/hw/vendor.oplus.hardware.wifi@1.1-service \
+            build/portrom/images/odm/etc/init/vendor.oplus.hardware.charger@1.0-service.rc \
+            build/portrom/images/odm/etc/init/vendor.oplus.hardware.felica@1.0-service.rc \
+            build/portrom/images/odm/etc/init/vendor.oplus.hardware.midas@1.0-service.rc \
+            build/portrom/images/odm/etc/init/vendor.oplus.hardware.wifi@1.1-service-qcom.rc \
+            build/portrom/images/odm/etc/vintf/manifest/manifest_oplus_charger.xml \
+            build/portrom/images/odm/etc/vintf/manifest/manifest_oplus_felica.xml \
+            build/portrom/images/odm/etc/vintf/manifest/manifest_oplus_midas.xml \
+            build/portrom/images/odm/etc/vintf/manifest/oplus_wifi_service_device.xml \
+            build/portrom/images/odm/framework/vendor.oplus.hardware.wifi-V1.1-java.jar \
+            build/portrom/images/odm/lib64/vendor.oplus.hardware.felica@1.0-impl.so \
+            build/portrom/images/odm/lib64/vendor.oplus.hardware.felica@1.0.so \
+            build/portrom/images/odm/lib64/vendor.oplus.hardware.wifi@1.1.so \
+            build/portrom/images/odm/overlay/CarrierConfigOverlay.*.apk
+    fi
+fi
 #Unlock AI CAll
 patch_smali "HeyTapSpeechAssist.apk" "jc/a.smali" "PHY120" "KB2000"
 

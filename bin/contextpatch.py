@@ -4,7 +4,11 @@ import os
 from re import sub
 from difflib import SequenceMatcher
 
-fix_permission = {"/vendor/bin/hw/android.hardware.wifi@1.0": "u:object_r:hal_wifi_default_exec:s0"}
+fix_permission = {
+    "/vendor/bin/hw/android.hardware.wifi@1.0": "u:object_r:hal_wifi_default_exec:s0",
+	r"/odm/bin/hw/vendor\.oplus\.hardware\.charger-V3-service":"u:object_r:hal_charger_oplus_exec:s0",
+    r"/odm/bin/hw/android\.hardware\.power\.stats-impl\.oplus":"u:object_r:hal_power_stats_default_exec:s0" 
+    }
 
 
 def scan_context(file) -> dict:  # 读取context文件返回一个字典
