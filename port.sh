@@ -107,11 +107,11 @@ blue "正在清理文件" "Cleaning up.."
 for i in ${port_partition};do
     [ -d ./${i} ] && rm -rf ./${i}
 done
-sudo rm -rf app
-sudo rm -rf tmp
-sudo rm -rf config
-sudo rm -rf build/baserom/
-sudo rm -rf build/portrom/
+rm -rf app
+rm -rf tmp
+rm -rf config
+rm -rf build/baserom/
+rm -rf build/portrom/
 find . -type d -name 'ColorOS_*' |xargs rm -rf
 
 green "文件清理完毕" "Files cleaned up."
@@ -145,7 +145,7 @@ elif [[ ${baserom_type} == 'br' ]];then
     done
     for i in ${super_list}; do 
         ${tools_dir}/brotli -d build/baserom/$i.new.dat.br >/dev/null 2>&1
-        sudo python3 ${tools_dir}/sdat2img.py build/baserom/$i.transfer.list build/baserom/$i.new.dat build/baserom/images/$i.img >/dev/null 2>&1
+        python3 ${tools_dir}/sdat2img.py build/baserom/$i.transfer.list build/baserom/$i.new.dat build/baserom/images/$i.img >/dev/null 2>&1
         rm -rf build/baserom/$i.new.dat* build/baserom/$i.transfer.list build/baserom/$i.patch.*
     done
 fi

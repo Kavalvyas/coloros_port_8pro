@@ -182,7 +182,7 @@ extract_partition() {
     if [[ -f ${part_img} ]];then 
         if [[ $($tools_dir/gettype -i ${part_img} ) == "ext" ]];then
             blue "[ext] 正在分解${part_name}" "[ext] Extracing ${part_name} "
-            sudo python3 bin/imgextractor/imgextractor.py ${part_img} ${target_dir}  || { error "分解 ${part_name} 失败" "Extracting ${part_name} failed."; exit 1; }
+            python3 bin/imgextractor/imgextractor.py ${part_img} ${target_dir}  || { error "分解 ${part_name} 失败" "Extracting ${part_name} failed."; exit 1; }
             green "[ext]分解[${part_name}] 完成" "[ext] ${part_name} extracted."
             rm -rf ${part_img}      
         elif [[ $($tools_dir/gettype -i ${part_img}) == "erofs" ]]; then
@@ -257,8 +257,8 @@ patch_kernel_to_bootimg() {
           fi
       fi
     fi
-    sudo cp -f $kernel_file ${work_dir}/tmp/boot/kernel
-    sudo cp -f $dtb_file ${work_dir}/tmp/boot/dtb
+    cp -f $kernel_file ${work_dir}/tmp/boot/kernel
+    cp -f $dtb_file ${work_dir}/tmp/boot/dtb
     cd ${work_dir}/tmp/boot/ramdisk/
     find | sed 1d | cpio -H newc -R 0:0 -o -F ../ramdisk_new.cpio > /dev/null 2>&1
     cd ..
