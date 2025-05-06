@@ -24,18 +24,6 @@ export PATH=$(pwd)/bin/$(uname)/$(uname -m)/:$PATH
 # Import functions
 source functions.sh
 
-shopt -s expand_aliases
-if [[ "$OSTYPE" == "darwin"* ]]; then
-    yellow "检测到Mac，设置alias" "macOS detected,setting alias"
-    alias sed=gsed
-    alias tr=gtr
-    alias grep=ggrep
-    alias du=gdu
-    alias date=gdate
-    #alias find=gfind
-fi
-
-
 check unzip aria2c 7z zip java python3 zstd bc xmlstarlet
 
 # 可在 bin/port_config 中更改

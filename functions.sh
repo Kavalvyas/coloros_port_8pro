@@ -85,6 +85,17 @@ check() {
     done
 }
 
+shopt -s expand_aliases
+if [[ "$OSTYPE" == "darwin"* ]]; then
+    yellow "检测到Mac，设置alias" "macOS detected,setting alias"
+    alias sed=gsed
+    alias tr=gtr
+    alias grep=ggrep
+    alias du=gdu
+    alias date=gdate
+    alias stat=gstat
+    alias find=gfind
+fi
 
 # Replace Smali code in an APK or JAR file, without supporting resource patches.
 # $1: Target APK/JAR file
