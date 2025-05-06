@@ -341,7 +341,7 @@ yellow "删除多余的App" "Debloating..."
 debloat_apps=()
 #kept_apps=("Clock" "FileManager" "KeKeThemeSpace" "SogouInput" "Weather" "Calendar")
 kept_apps=()
-if [[ $super_extended == "false" ]] && [[ $base_rom_model == "KB2000" ]];then
+if [[ $super_extended == "false" ]] && [[ $base_product_model == "KB2000" ]];then
     for delapp in $(find build/portrom/images/ -maxdepth 3 -path "*/del-app/*" -type d ); do
         app_name=$(basename ${delapp})
         
@@ -402,7 +402,7 @@ for i in $(find build/portrom/images -type f -name "build.prop");do
     sed -i "s/persist.sys.timezone=.*/persist.sys.timezone=Asia\/Shanghai/g" ${i}
     #全局替换device_code
     sed -i "s/$port_device_code/$base_device_code/g" ${i}
-    sed -i "s/$port_rom_model/$base_rom_model/g" ${i}
+    sed -i "s/$port_product_model/$base_product_model/g" ${i}
     sed -i "s/$port_product_name/$base_product_name/g" ${i}
     sed -i "s/$port_my_product_type/$base_my_product_type/g" ${i}
     sed -i "s/$port_market_name/$base_market_name/g" ${i}
@@ -828,7 +828,7 @@ hash=$(md5sum out/${os_type}_${rom_version}.zip |head -c 10)
 if [[ $pack_type == "EROFS" ]];then
     pack_type="ROOT_"${pack_type}
 fi
-mv out/${os_type}_${rom_version}.zip out/${os_type}_${rom_version}_${hash}_${port_rom_model}_${pack_timestamp}_${pack_type}.zip
+mv out/${os_type}_${rom_version}.zip out/${os_type}_${rom_version}_${hash}_${port_product_model}_${pack_timestamp}_${pack_type}.zip
 green "移植完毕" "Porting completed"    
 green "输出包路径：" "Output: "
-green "$(pwd)/out/${os_type}_${rom_version}_${hash}_${port_rom_model}_${pack_timestamp}_${pack_type}.zip"
+green "$(pwd)/out/${os_type}_${rom_version}_${hash}_${port_product_model}_${pack_timestamp}_${pack_type}.zip"
