@@ -1,3 +1,5 @@
+# 需要移植的分区
+partition_to_port=system,system_ext,product,my_product,my_engineering,my_stock,my_heytap,my_carrier,my_region,my_bigball,my_manifest,my_company,my_preload
 
 # 可能的super子分区列表
 possible_super_list=vendor system product odm my_engineering system_ext my_product my_stock my_heytap my_company my_carrier my_region my_preload my_bigball my_manifest
@@ -12,3 +14,4 @@ remove_data_encryption=false
 
 # Needed to manually extend super partition, in order to flash it successfully. 
 super_extended=false
+pack_method=stock
