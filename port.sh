@@ -256,7 +256,7 @@ fi
 rm -rf build/portrom/images/my_manifest
 cp -rf build/baserom/images/my_manifest build/portrom/images/
 cp -rf build/baserom/images/config/my_manifest_* build/portrom/images/config/
-sed -i "s/ro.build.display.id=.*/ro.build.display.id=${target_display_id}/g" build/portrom/images/my_manifest/build.prop
+#sed -i "s/ro.build.display.id=.*/ro.build.display.id=${target_display_id}/g" build/portrom/images/my_manifest/build.prop
 sed -i "s/ro.build.display.id.show=.*/ro.build.display.id.show=${target_display_id_show}/g" build/portrom/images/my_manifest/build.prop
 sed -i '/ro.build.version.release=/d' build/portrom/images/my_manifest/build.prop
 #其他机型可能没有default.prop
@@ -403,6 +403,7 @@ for i in $(find build/portrom/images -type f -name "build.prop");do
     sed -i "s/$port_product_device/$base_product_device/g" ${i}
     # 添加build user信息
     sed -i "s/ro.build.user=.*/ro.build.user=${build_user}/g" ${i}
+    sed -i "s/ro.build.display.id=.*/ro.build.display.id=${target_display_id}/g" ${i}
 done
 
 #sed -i -e '$a\'$'\n''persist.adb.notify=0' build/portrom/images/system/system/build.prop
