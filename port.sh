@@ -250,6 +250,9 @@ else
 
 fi
 
+if [[ -f devices/${base_product_device}/config ]];then
+   source devices/${base_product_device}/config
+fi
 rm -rf build/portrom/images/my_manifest
 cp -rf build/baserom/images/my_manifest build/portrom/images/
 cp -rf build/baserom/images/config/my_manifest_* build/portrom/images/config/
