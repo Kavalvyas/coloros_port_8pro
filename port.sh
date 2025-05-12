@@ -252,6 +252,11 @@ else
 
 fi
 
+if [[ ! -f build/portrom/images/system/system/bin/app_process32 ]]; then
+    error "检测到64位系统，退出移植，请选支持32位的包(比如12R)" "64bit only protrom detected. abort! "
+    exit 1
+fi
+
 if [[ -f devices/${base_product_device}/config ]];then
    source devices/${base_product_device}/config
 fi
@@ -374,8 +379,29 @@ if [[ $super_extended == "false" ]] && [[ $base_product_model == "KB2000" ]];the
         fi
 
     done
-fi
-
+    for debloat_app in "${debloat_apps[@]}"; do
+    app_dir=$(find build/portrom/images/ -type d -name "*$debloat_app*")
+    
+    # Check if the directory exists before removing
+    if [[ -d "$app_dir" ]]; then
+        yellow "删除目录: $app_dir" "Removing directory: $app_dir"
+        rm -rfv "$app_dir"
+    fi
+    done
+elif [[ $super_extended == "false" ]] && [[ $base_product_model == "KB200"* ]];then
+    debloat_apps=("Facebook" "YTMusic" "GoogleHome" "Videos_del" "Drive_del" "ConsumerIRApp" "YouTube" "Gmail2" "Maps" "Wellbeing")
+    for debloat_app in "${debloat_apps[@]}"; do
+    app_dir=$(find build/portrom/images/ -type d -name "*$debloat_app*")
+    
+    # Check if the directory exists before removing
+    if [[ -d "$app_dir" ]]; then
+        yellow "删除目录: $app_dir" "Removing directory: $app_dir"
+        rm -rfv "$app_dir"
+    fi
+    done
+    rm -rfv build/portrom/images/my_stock/del-app/*
+elif [[ $super_extended == "false" ]] && [[ $base_product_model == "LE2101" ]];then
+    debloat_apps=("Facebook" "YTMusic" "GoogleHome" "Videos_del" "Drive_del" "ConsumerIRApp" "YouTube" "Gmail2" "Maps")
 for debloat_app in "${debloat_apps[@]}"; do
     # Find the app directory
     app_dir=$(find build/portrom/images/ -type d -name "*$debloat_app*")
@@ -386,6 +412,8 @@ for debloat_app in "${debloat_apps[@]}"; do
         rm -rf "$app_dir"
     fi
 done
+  rm -rfv build/portrom/images/my_stock/del-app/*
+fi
 rm -rf build/portrom/images/product/etc/auto-install*
 rm -rf build/portrom/images/system/verity_key
 rm -rf build/portrom/images/vendor/verity_key
@@ -426,6 +454,9 @@ for i in $(find build/portrom/images -type f -name "build.prop");do
     # 添加build user信息
     sed -i "s/ro.build.user=.*/ro.build.user=${build_user}/g" ${i}
     sed -i "s/ro.build.display.id=.*/ro.build.display.id=${target_display_id}/g" ${i}
+    sed -i "s/ro.oplus.radio.global_regionlock.enabled=.*/ro.oplus.radio.global_regionlock.enabled=false/g" ${i}
+    sed -i "s/persist.sys.radio.global_regionlock.allcheck=.*/persist.sys.radio.global_regionlock.allcheck=false/g" ${i}
+    sed -i "s/ro.oplus.radio.checkservice=.*/ro.oplus.radio.checkservice=false/g" ${i}
 done
 
 #sed -i -e '$a\'$'\n''persist.adb.notify=0' build/portrom/images/system/system/build.prop
@@ -465,7 +496,19 @@ sed -i "s/persist.sys.oplus.anim_level=.*/persist.sys.oplus.anim_level=2/g" buil
 cp -rf build/baserom/images/my_product/app/com.oplus.vulkanLayer build/portrom/images/my_product/app/
 cp -rf build/baserom/images/my_product/app/com.oplus.gpudrivers.sm8250.api30 build/portrom/images/my_product/app/
 
+   mkdir -p tmp/etc/permissions/
+   mv -fv build/portrom/images/my_product/etc/permissions/* tmp/etc/permissions/
+   cp -rf build/baserom/images/my_product/etc/permissions/*.xml build/portrom/images/my_product/etc/permissions/
+   find tmp/etc/permissions/ -type f \( -name "multimedia*.xml" -o -name "*privapp*permissions*.xml" -o -name "*google*.xml" \) -exec cp -fv {} build/portrom/images/my_product/etc/permissions/ \;
 
+if [[ $regionmark != "CN" ]];then
+   sed -i "/com.android.contacts/d" build/portrom/images/my_stock/etc/config/app_v2.xml
+   sed -i "/com.android.incallui/d" build/portrom/images/my_stock/etc/config/app_v2.xml
+   sed -i "/com.android.mms/d" build/portrom/images/my_stock/etc/config/app_v2.xml
+fi
+
+cp -rf build/baserom/images/my_product/etc/permissions/*.xml build/portrom/images/my_product/etc/permissions/
+cp -rf build/baserom/images/my_product/etc/extension/*.xml build/portrom/images/my_product/etc/extension/
 cp -rf  build/baserom/images/my_product/etc/refresh_rate_config.xml build/portrom/images/my_product/etc/refresh_rate_config.xml
 cp -rf  build/baserom/images/my_product/non_overlay build/portrom/images/my_product/non_overlay
 
@@ -512,10 +555,35 @@ add_feature "oplus.software.game_engine_vibrator_v1.support" build/portrom/image
 add_feature 'os.personalization.wallpaper.live.ripple.enable" args="boolean:true' build/portrom/images/my_product/etc/extension/com.oplus.app-features.xml
 add_feature "os.personalization.flip.agile_window.enable" build/portrom/images/my_product/etc/extension/com.oplus.app-features.xml
 # Oneplus Alert Slider, Needed for RealmeUI
-add_feature  "oplus.software.audio.alert_slider" build/portrom/images/my_product/etc/permissions/oplus.product.feature_multimedia_unique.xml
+if grep -q "oplus.software.audio.alert_slider"  build/portrom/images/my_product/etc/permissions/* ;then
+    add_feature "oplus.software.audio.alert_slider" build/portrom/images/my_product/etc/permissions/oplus.product.feature_multimedia_unique.xml
+fi
+
+remove_feature "com.android.settings.processor_detail_gen2"
+remove_feature "com.android.settings.processor_detail"
+remove_feature "os.charge.settings.wirelesscharge.support"
+remove_feature "com.oplus.battery.wireless.charging.notificate"
+remove_feature "os.charge.settings.wirelesscharging.power"
+remove_feature "os.charge.settings.wirelesschargingcoil.position"
 
  # Camera
 cp -rf  build/baserom/images/my_product/etc/camera/* build/portrom/images/my_product/etc/camera
+
+old_camera_app=$(find build/baserom/images/my_product -type f -name "OnePlusCamera.apk")
+if [[ -f $old_camera_app ]];then
+    cp -rfv $(dirname "$old_camera_app")* build/portrom/images/my_product/priv-app/
+    if [ ! -d build/portrom/images/my_product/priv-app/etc/permissions/ ];then
+        mkdir -p build/portrom/images/my_product/priv-app/etc/permissions/
+    fi
+    cp -rfv  build/baserom/images/my_product/priv-app/etc/permissions/*   build/portrom/images/my_product/priv-app/etc/permissions/
+    new_camera=$(find build/portrom/images/my_product -type f -name "OplusCamera.apk")
+    if [[ -f $new_camera ]]; then
+        rm -rfv $(dirname $new_camera)
+    fi
+else
+   echo "ro.vendor.oplus.camera.isSupportExplorer=1" >> build/portrom/images/my_product/build.prop
+fi
+
 cp -rf  build/baserom/images/my_product/vendor/etc/* build/portrom/images/my_product/vendor/etc/
 
 rm -rf  build/portrom/images/my_product/priv-app/*
@@ -637,6 +705,9 @@ done
 echo "${pack_type}">fstype.txt
 if [[ $super_extended == true ]];then
     superSize=$(bash bin/getSuperSize.sh "others")
+elif [[ $base_product_model == "LE2101" ]]; then
+	# OnePlus 9R In is totally diff than OnePlus 9R CN
+    superSize=$(bash bin/getSuperSize.sh OnePlus8T)
 else
 superSize=$(bash bin/getSuperSize.sh $base_product_device)
 fi
