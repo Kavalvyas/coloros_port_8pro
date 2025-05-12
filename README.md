@@ -11,7 +11,8 @@
 
 ## 支持机型
 
-- 一加8系统（一加8、一加8Pro、一加8T）
+- 一加8系统（一加8、一加8Pro、一加8T、一加9R）
+- Oppo Find X3
 
 ## 测试机型及版本
 - BASE: OnePlus 8T (ColorOS_14.0.0.600), OnePlus 8 (ColorOS_IN2010_13.1.190), OnePlus 8 Pro (ColorOS_IN2020_13.1.0.190)

@@ -246,7 +246,8 @@ patch_kernel_to_bootimg() {
     bootimg_name=$3
     mkdir -p ${work_dir}/tmp/boot
     cd ${work_dir}/tmp/boot
-    cp ${work_dir}/build/baserom/images/boot.img ${work_dir}/tmp/boot/boot.img
+    bootimg=$(find ${work_dir}/build/baserom/ -name boot.img)
+    cp $bootimg ${work_dir}/tmp/boot/boot.img
     magiskboot unpack -h ${work_dir}/tmp/boot/boot.img > /dev/null 2>&1
     if [ -f ramdisk.cpio ]; then
     comp=$(magiskboot decompress ramdisk.cpio | grep -v 'raw' | sed -n 's;.*\[\(.*\)\];\1;p')

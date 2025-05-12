@@ -744,6 +744,63 @@ if [[ $pack_method == "stock" ]];then
         echo "PAYLOAD_MINOR_VERSION=8"
     } >> out/target/product/${base_product_device}/META/update_engine_config.txt
 
+    if [[ "$is_ab_device" == false ]];then
+        sed -i "/ab_update=true/d" out/target/product/${base_product_device}/META/misc_info.txt
+        {
+            echo "blockimgdiff_versions=3,4"
+            echo "use_dynamic_partitions=true"
+            echo "dynamic_partition_list=$super_list_info"
+            echo "super_partition_groups=qti_dynamic_partitions"
+            echo "super_qti_dynamic_partitions_group_size=$superSize"
+            echo "super_qti_dynamic_partitions_partition_list=$super_list_info"
+            echo "board_uses_vendorimage=true"
+            echo "cache_size=402653184"
+
+        } >> out/target/product/${base_product_device}/META/misc_info.txt
+        mkdir -p out/target/product/${base_product_device}/OTA/bin
+        for part in MY_PRODUCT MY_BIGBALL MY_CARRIER MY_ENGINEERING MY_HEYTAP MY_MANIFEST MY_REGION MY_STOCK;do
+            mkdir -p out/target/product/${base_product_device}/$part
+        done
+
+        if [[ -f devices/${base_product_device}/OTA/bin/updater ]];then
+            cp -rf devices/${base_product_device}/OTA/bin/updater out/target/product/${base_product_device}/OTA/bin
+        else
+            cp -rf devices/common/non-ab/OTA/updater out/target/product/${base_product_device}/OTA/bin
+        fi
+        if [[ -d build/baserom/firmware-update ]];then
+            cp -rf build/baserom/firmware-update out/target/product/${base_product_device}/
+        elif find build/baserom/ -type f \( -name "*.elf" -o -name "*.mdn" -o -name "*.bin" \) | grep -q .; then
+            for firmware in $(find build/baserom/ -type f \( -name "*.elf" -o -name "*.mdn" -o -name "*.bin" \));do
+                mv  -rfv $firmware out/target/product/${base_product_device}/firmware-update
+            done
+            bootimg=$(find build/baserom/ -name "boot.img")
+            dtboimg=$(find build/baserom/images -name "dtbo.img")
+            vbmetaimg=$(find build/baserom/ -name "vbmeta.img")
+            vmbeta_systemimg=$(find build/baserom/ -name "vbmeta_sytem.img")
+            cp -rf $bootimg out/target/product/${base_product_device}/IMAGES/
+            cp -rf $dtboimg out/target/product/${base_product_device}/firmware-update
+            cp -rf $vbmetaimg out/target/product/${base_product_device}/firmware-update
+            cp -rf $vmbeta_systemimg out/target/product/${base_product_device}/firmware-update
+        fi
+
+        if [[ -d build/baserom/storage-fw ]];then
+            cp -rf build/baserom/storage-fw out/target/product/${base_product_device}/
+            cp -rf build/baserom/ffu_tool out/target/product/${base_product_device}/storage-fw
+        fi
+        export OUT=$(pwd)/out/target/product/${base_product_device}/
+        if [[ -f devices/${base_product_device}/releasetools.py ]];then
+            cp -rf devices/${base_product_device}/releasetools.py out/target/product/${base_product_device}/META/
+        else
+            cp -rf devices/common/releasetools.py out/target/product/${base_product_device}/META/
+        fi
+
+        mkdir -p out/target/product/${base_product_device}/RECOVERY/RAMDISK/etc/
+        if [[ -f devices/${base_product_device}/recovery.fstab ]];then
+            cp -rf devices/${base_product_device}/recovery.fstab out/target/product/${base_product_device}/RECOVERY/RAMDISK/etc/
+        else
+            cp -rf devices/common/recovery.fstab out/target/product/${base_product_device}/RECOVERY/RAMDISK/etc/
+        fi
+    fi
     declare -A prop_paths=(
     ["system"]="SYSTEM"
     ["product"]="PRODUCT"
