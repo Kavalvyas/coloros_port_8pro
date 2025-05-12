@@ -151,7 +151,7 @@ for part in system product system_ext my_product my_manifest ;do
 done
 
 # Move those to portrom folder. We need to pack those imgs into final port rom
-for image in vendor odm my_company my_preload;do
+for image in vendor odm my_company my_preload system_dlkm vendor_dlkm my_engineering;do
     if [ -f build/baserom/images/${image}.img ];then
         mv -f build/baserom/images/${image}.img build/portrom/images/${image}.img
 
@@ -161,6 +161,9 @@ for image in vendor odm my_company my_preload;do
     fi
 done
 
+if [ ! -d build/portrom/images/system_dlkm ];then
+        super_list="system system_ext vendor product my_product odm my_engineering my_stock my_heytap my_carrier my_region my_bigball my_manifest my_company my_preload"
+fi
 # Extract the partitions list that need to pack into the super.img
 #super_list=$(sed '/^#/d;/^\//d;/overlay/d;/^$/d;/\^loop/d' build/portrom/images/vendor/etc/fstab.qcom \
 #                | awk '{ print $1}' | sort | uniq)
