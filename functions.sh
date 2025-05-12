@@ -227,6 +227,18 @@ disable_avb_verify() {
         blue "AVB 验证禁用完成" "AVB verification disabled successfully"
     fi
 }
+spoof_bootimg() {
+    bootimg=$1
+    mkdir -p ${work_dir}/tmp/boot_official
+    cp $bootimg ${work_dir}/tmp/boot_official/boot.img
+    pushd ${work_dir}/tmp/boot_official
+    magiskboot unpack -h ${work_dir}/tmp/boot_official/boot.img > /dev/null 2>&1
+    sed -i '/^cmdline=/ s/$/ androidboot.vbmeta.device_state=unlocked/' header
+    magiskboot repack ${work_dir}/tmp/boot_official/boot.img  ${work_dir}/tmp/boot_official/new-boot.img
+    popd
+    cp ${work_dir}/tmp/boot_official/new-boot.img $bootimg
+}
+
 
 patch_kernel_to_bootimg() {
     kernel_file=$1
