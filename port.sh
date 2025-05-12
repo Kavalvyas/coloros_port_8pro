@@ -392,6 +392,14 @@ if [[ ${port_android_version} == 15 ]];then
 
     if [[ ${base_device_family} == "OPSM8250" ]] && [[ ${base_android_version} != 13 ]] && [[ ${port_android_version} == 15 ]];then
         unzip -o devices/common/ril_fix_sm8250.zip -d ${work_dir}/build/portrom/images/
+    elif [[ ${base_device_family} == "OPSM8350" ]];then
+        unzip -o devices/common/ril_fix_sm8350.zip -d ${work_dir}/build/portrom/images/
+        rm -rf build/portrom/images/odm/lib/libmindroid-app.so \
+            build/portrom/images/odm/lib/libmindroid-framework.so \
+            build/portrom/images/odm/lib/vendor.oplus.hardware.subsys_radio-V1-ndk_platform.so \
+            build/portrom/images/odm/lib/vendor.oplus.hardware.subsys-V1-ndk_platform.so \
+            build/portrom/images/odm/lib64/vendor.oplus.hardware.subsys_radio-V1-ndk_platform.so \
+            build/portrom/images/odm/lib64/vendor.oplus.hardware.subsys-V1-ndk_platform.so
     fi
 
     if [[ ${base_android_version} == 14 ]]; then
@@ -592,6 +600,12 @@ if [[ ! -f build/baserom/images/my_product/etc/extension/sys_graphic_enhancement
     rm -rf build/portrom/images/my_product/etc/extension/sys_graphic_enhancement_config.json
 else
     cp -rf build/baserom/images/my_product/etc/extension/sys_graphic_enhancement_config.json build/portrom/images/my_product/etc/extension/
+fi
+if [[ $(cat build/baserom/images/my_product/build.prop | grep "ro.oplus.audio.effect.type" | cut -d "=" -f 2) == "dolby" ]] ;then
+   blue "修复杜比音效+多应用音量调节 SM8250/SM8350" "Fix Dolby + App Specific volume adjustment for SM8250/SM8350"
+    #cp $source_dolby_lib build/portrom/images/system_ext/lib64/
+    #cp build/baserom/images/my_product/etc/permissions/oplus.product.features_dolby_stereo.xml build/portrom/images/my_product/etc/permissions/oplus.product.features_dolby_stereo.xml
+    unzip -o devices/common/dolby_fix.zip -d build/portrom/images/ 
 fi
 
 # Fix wechat/whatsapp volume isue

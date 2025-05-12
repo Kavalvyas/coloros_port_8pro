@@ -8,12 +8,13 @@
 </div>
 
 ## Intro
-- ColorOS Porting Project for OnePlus 8T
+- ColorOS Porting Project
 
 ## Supported Devices
 
 - OnePlus 8 OnePlus 8Pro OnePlus 8T OnePlus 9R(CN)
-- Oppo Find X3
+- OnePlus 9 OnePlus 9Pro OnePlus 9RT
+- Oppo Find X3 Oppo Find X3 Pro
 
 ## Tested devices and portroms
 - Test Base ROM:  OnePlus 8T (ColorOS_14.0.0.600), OnePlus 8 (ColorOS_IN2010_13.1.190), OnePlus 8 Pro (ColorOS_IN2020_13.1.0.190)
