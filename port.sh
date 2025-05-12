@@ -742,6 +742,13 @@ rom_version=$(cat build/portrom/images/my_manifest/build.prop | grep "ro.build.d
 for img in $(find build/baserom/ -type f -name "vbmeta*.img");do
     python3 bin/patch-vbmeta.py ${img} > /dev/null 2>&1
 done
+if [[ -f devices/${base_product_device}/tz.img ]]; then
+  cp -rfv devices/${base_product_device}/tz.img build/baserom/images/
+fi
+
+if [[ -f devices/${base_product_device}/keymaster.img ]]; then
+  cp -rfv devices/${base_product_device}/keymaster.img build/baserom/images/
+fi
 
 if [[ $is_ab_device == true ]]; then
     if [[ ! -f build/portrom/images/my_preload.img ]];then
