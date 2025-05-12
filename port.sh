@@ -253,8 +253,11 @@ else
 fi
 
 if [[ ! -f build/portrom/images/system/system/bin/app_process32 ]]; then
-    error "检测到64位系统，退出移植，请选支持32位的包(比如12R)" "64bit only protrom detected. abort! "
-    exit 1
+    blue "64bit only protrom detected. Pathcing 32bit "
+    sed -i "s/ro.system.product.cpu.abilist=.*/ro.system.product.cpu.abilist=arm64-v8a,armeabi-v7a,armeabi/g" build/portrom/images/system/system/build.prop
+    sed -i "s/ro.system.product.cpu.abilist32=.*/ro.system.product.cpu.abilist32=armeabi-v7a,armeabi/g" build/portrom/images/system/system/build.prop
+
+    cp -rfv devices/32-libs/* build/portrom/images/
 fi
 
 if [[ -f devices/${base_product_device}/config ]];then
@@ -283,26 +286,36 @@ if [ ! -f "${port_vndk}" ]; then
 fi
 sed -i "s/ro.build.version.security_patch=.*/ro.build.version.security_patch=${portrom_version_security_patch}/g" build/portrom/images/my_manifest/build.prop
 
+
+
+old_face_unlock_app=$(find build/baserom/images/my_product -name "OPFaceUnlock.apk")
 if [[ ! -d tmp ]];then
     mkdir -p tmp/
 fi
 
  mkdir -p tmp/services/
  cp -rf build/portrom/images/system/system/framework/services.jar tmp/services.jar
+framework_res=$(find build/portrom/images/ -type f -name "framework-res.apk")
+extra_args=""
 
-java -jar bin/apktool/APKEditor.jar d -f -i tmp/services.jar -o tmp/services  > /dev/null 2>&1
-declare -A smali_to_methods=()
+if [[ -f $framework_res ]];then
+    extra_args="-framework $framework_res"
+fi
 
-smali_to_methods[ScanPackageUtils]="--assertMinSignatureSchemeIsValid"
+java -jar bin/apktool/APKEditor.jar d -f -i tmp/services.jar -o tmp/services 
+smalis=("ScanPackageUtils")
+methods=("--assertMinSignatureSchemeIsValid")
 
-for smali in ${!smali_to_methods[@]}; do
+for (( i=0; i<${#smalis[@]}; i++ )); do
+    smali="${smalis[i]}"
+    method="${methods[i]}"
+    
     target_file=$(find tmp/services -type f -name "${smali}.smali")
     echo "smali is $smali"
     echo "target_file is $target_file"
     if [[ -f $target_file ]]; then
-        methods=${smali_to_methods[$smali]}
-        for method in $methods; do 
-            python3 bin/patchmethod.py $target_file $method && blue "${target_file}  修改成功" "${target_file} patched"
+        for single_method in $method; do
+            python3 bin/patchmethod.py $target_file $single_method && echo "${target_file} patched successfully"
         done
     fi
 done
@@ -326,10 +339,33 @@ target_method='getMinimumSignatureSchemeVersionForTargetSdk'
         { sed -i "${orginal_line_number},${move_result_end_line}d" "$smali_file" && sed -i "${orginal_line_number}i\\${replace_with_command}" "$smali_file"; } && blue "${smali_file}  修改成功" "${smali_file} patched"
         old_smali_dir=$smali_dir
     done < <(find tmp/services/smali/*/com/android/server/pm/ tmp/services/smali/*/com/android/server/pm/pkg/parsing/ -maxdepth 1 -type f -name "*.smali" -exec grep -H "$target_method" {} \; | cut -d ':' -f 1)
- 
+if [[ ${base_device_family} == "OPSM8250" ]] ; then
+    blue "修复ColorOS15/OxygenOS15 人脸识解锁问题" "COS15/OOS15: Fix Face Unlock for SM8250"
+    #pushd tmp/services
+    #patch -p1 < ${work_dir}/devices/${base_product_device}/0001-face-unlock-fix-for-op8t.patch
+    #popd
+	if [[ -f devices/common/face_unlock_fix_common.zip ]];then
+        rm -rf build/portrom/images/vendor/overlay/*
+        unzip -o devices/common/face_unlock_fix_common.zip -d ${work_dir}/build/portrom/images/
+        
+    fi
+	
+    if [[ -f $old_face_unlock_app ]]; then
+        unzip -o ${work_dir}/devices/${base_product_device}/face_unlock_fix.zip -d ${work_dir}/build/portrom/images/
+        rm -rf build/portrom/images/odm/lib/vendor.oneplus.faceunlock.hal@1.0.so
+        rm -rf build/portrom/images/odm/bin/hw/vendor.oneplus.faceunlock.hal@1.0-service
+        rm -rf build/portrom/images/odm/lib/vendor.oneplus.faceunlock.hal-V1-ndk_platform.so
+        rm -rf build/portrom/images/odm/etc/vintf/manifest/manifest_opfaceunlock.xml
+        rm -rf build/portrom/images/odm/etc/init/vendor.oneplus.faceunlock.hal@1.0-service.rc
+        rm -rf build/portrom/images/odm/lib64/vendor.oneplus.faceunlock.hal@1.0.so
+        rm -rf build/portrom/images/odm/lib64/vendor.oneplus.faceunlock.hal-V1-ndk_platform.so
 
+
+    fi
+fi
 java -jar bin/apktool/APKEditor.jar b -f -i tmp/services -o tmp/services_patched.jar > /dev/null 2>&1
 cp -rf tmp/services_patched.jar build/portrom/images/system/system/framework/services.jar
+
 
 if [[ ${base_android_version} == 13 ]] && [[ ${port_android_version} == 14 ]];then
     if [[ -f devices/common/a13_base_fix.zip ]];then
@@ -351,18 +387,91 @@ if [[ ${base_android_version} == 13 ]] && [[ ${port_android_version} == 14 ]];th
             build/portrom/images/odm/overlay/CarrierConfigOverlay.*.apk
     fi
 fi
-#Unlock AI CAll
-patch_smali "HeyTapSpeechAssist.apk" "jc/a.smali" "PHY120" "KB2000"
 
-patch_smali "HeyTapSpeechAssist.apk" "tc/a.smali" "PHY120" "KB2000"
+if [[ ${port_android_version} == 15 ]];then
 
+    if [[ ${base_device_family} == "OPSM8250" ]] && [[ ${base_android_version} != 13 ]] && [[ ${port_android_version} == 15 ]];then
+        unzip -o devices/common/ril_fix_sm8250.zip -d ${work_dir}/build/portrom/images/
+    fi
+
+    if [[ ${base_android_version} == 14 ]]; then
+    charger_v3=$(find build/portrom/images/odm/bin/hw/ -type f -name "vendor.oplus.hardware.charger-V3-service")
+        if [[ -f $charger_v3 ]];then
+        unzip -o devices/common/charger-v6-update.zip -d ${work_dir}/build/portrom/images/
+        rm -rf build/portrom/images/odm/bin/hw/vendor.oplus.hardware.charger-V3-service \
+            build/portrom/images/odm/etc/init/vendor.oplus.hardware.charger-V3-service.rc \
+            build/portrom/images/odm/lib/vendor.oplus.hardware.charger-V3-ndk_platform.so \
+            build/portrom/images/odm/lib64/vendor.oplus.hardware.charger-V3-ndk_platform.so
+        fi
+    fi
+fi
+
+if [[ ${base_android_version} == 13 ]] && [[ ${port_android_version} == 15 ]];then
+    #Ril Fix
+    unzip -o devices/common/ril_fix_a13_to_a15.zip -d ${work_dir}/build/portrom/images/
+
+    rm -rf build/portrom/images/odm/bin/hw/vendor.oplus.hardware.charger@1.0-service \
+        build/portrom/images/odm/bin/hw/vendor.oplus.hardware.wifi@1.1-service \
+        build/portrom/images/odm/etc/init/vendor.oneplus.faceunlock.hal@1.0-service.rc \
+        build/portrom/images/odm/etc/init/vendor.oplus.hardware.charger@1.0-service.rc \
+        build/portrom/images/odm/etc/init/vendor.oplus.hardware.felica@1.0-service.rc \
+        build/portrom/images/odm/etc/init/vendor.oplus.hardware.midas@1.0-service.rc \
+        build/portrom/images/odm/etc/init/vendor.oplus.hardware.wifi@1.1-service-qcom.rc \
+        build/portrom/images/odm/etc/vintf/manifest/manifest_opfaceunlock.xml \
+        build/portrom/images/odm/etc/vintf/manifest/manifest_oplus_charger.xml \
+        build/portrom/images/odm/etc/vintf/manifest/manifest_oplus_cryptoeng_hidl.xml \
+        build/portrom/images/odm/etc/vintf/manifest/manifest_oplus_felica.xml \
+        build/portrom/images/odm/etc/vintf/manifest/manifest_oplus_midas.xml \
+        build/portrom/images/odm/etc/vintf/manifest/oplus_wifi_service_device.xml \
+        build/portrom/images/odm/framework/vendor.oplus.hardware.wifi-V1.1-java.jar \
+        build/portrom/images/odm/lib/vendor.oneplus.faceunlock.hal@1.0.so \
+        build/portrom/images/odm/lib/vendor.oneplus.faceunlock.hal-V1-ndk_platform.so \
+        build/portrom/images/odm/lib64/vendor.oneplus.faceunlock.hal@1.0.so \
+        build/portrom/images/odm/lib64/vendor.oneplus.faceunlock.hal-V1-ndk_platform.so \
+        build/portrom/images/odm/lib64/vendor.oplus.hardware.felica@1.0-impl.so \
+        build/portrom/images/odm/lib64/vendor.oplus.hardware.felica@1.0.so \
+        build/portrom/images/odm/lib64/vendor.oplus.hardware.subsys_radio-V1-ndk_platform.so \
+        build/portrom/images/odm/lib64/vendor.oplus.hardware.subsys-V1-ndk_platform.so \
+        build/portrom/images/odm/lib64/vendor.oplus.hardware.wifi@1.1.so
+    #Nfc Fix
+    unzip -o devices/common/nfc_fix_for_a13.zip -d ${work_dir}/build/portrom/images/
+    rm -rf build/portrom/images/odm/bin/hw/vendor.oplus.hardware.nfc@1.0-service \
+        build/portrom/images/odm/etc/init/vendor.oplus.hardware.nfc@1.0-service.rc \
+        build/portrom/images/odm/etc/vintf/manifest/manifest_oplus_nfc.xml \
+        build/portrom/images/odm/lib/vendor.oplus.hardware.nfc@1.0.so
+    if [[ -d devices/common/a13_blobs_update ]];then
+    # Fix Privacy related features(App lock、App hide)
+        cp -rf devices/common/a13_blobs_update/odm/bin/hw/vendor.oplus.hardware.cryptoeng@1.0-service build/portrom/images/odm/bin/hw/
+        cp -rf devices/common/a13_blobs_update/odm/lib64/vendor.oplus.hardware.commondcs-V1-ndk_platform.so build/portrom/images/odm/lib64
+    fi
+fi
 yellow "删除多余的App" "Debloating..." 
 # List of apps to be removed
 
-debloat_apps=()
+debloat_apps=("HeartRateDetect")
 #kept_apps=("Clock" "FileManager" "KeKeThemeSpace" "SogouInput" "Weather" "Calendar")
+#kept_apps=("BackupAndRestore" "Calculator2" "Calendar" "Clock" "FileManager" "OppoNote2" "OppoWeather2" "UPTsmService" "Music")
 kept_apps=()
-if [[ $super_extended == "false" ]] && [[ $base_product_model == "KB2000" ]];then
+if [[ $super_extended == "false" ]] && [[ $pack_method == "stock" ]] && [[ -f build/baserom/images/reserve.img ]]; then
+    #extract_partition "${work_dir}/build/baserom/images/reserve.img" "${work_dir}/build/baserom/images/"
+    #if [[ -f ext/del-app-ksu-module/system/product/app/* ]];then
+    ##    rm -rf ext/del-app-ksu-module/system/product/app/*
+    #fi
+    #ext_moudle_app_folder="ext/del-app-ksu-module/system/product/app"
+    for delapp in $(find build/portrom/images/ -maxdepth 3 -path "*/del-app/*" -type d);do
+        
+        app_name=$(basename "$delapp")
+
+        # Check if the app is in kept_apps, skip if true
+        if [[ " ${kept_apps[@]} " =~ " ${app_name} " ]]; then
+            echo "Skipping kept app: $app_name"
+        continue
+        fi
+        #mv -fv $delapp ${ext_moudle_app_folder}/
+        rm -rfv $delapp 
+    done 
+
+elif [[ $super_extended == "false" ]] && [[ $base_product_model == "KB2000" ]];then
     for delapp in $(find build/portrom/images/ -maxdepth 3 -path "*/del-app/*" -type d ); do
         app_name=$(basename ${delapp})
         
@@ -473,26 +582,48 @@ else
     fi
 
 # fix bootloop
+if [[ -f build/baserom/images/my_product/etc/extension/sys_game_manager_config.json ]];then
 cp -rf build/baserom/images/my_product/etc/extension/sys_game_manager_config.json build/portrom/images/my_product/etc/extension/
+else
+    rm -rf build/portrom/images/my_product/etc/extension/sys_game_manager_config.json
+fi
 
-props=("ro.oplus.display.screenSizeInches.primary" "ro.display.rc.size" "ro.oplus.display.rc.size" "ro.oppo.screen.heteromorphism" "ro.oplus.display.screen.heteromorphism" "ro.oppo.screenhole.positon" "ro.oplus.display.screenhole.positon" "ro.lcd.display.screen.underlightsensor.region" "ro.oplus.lcd.display.screen.underlightsensor.region")
+if [[ ! -f build/baserom/images/my_product/etc/extension/sys_graphic_enhancement_config.json ]];then
+    rm -rf build/portrom/images/my_product/etc/extension/sys_graphic_enhancement_config.json
+else
+    cp -rf build/baserom/images/my_product/etc/extension/sys_graphic_enhancement_config.json build/portrom/images/my_product/etc/extension/
+fi
 
-props+=("ro.display.brightness.hbm_xs" "ro.display.brightness.hbm_xs_min" "ro.display.brightness.hbm_xs_max" "ro.oplus.display.brightness.xs" "ro.oplus.display.brightness.ys" "ro.oplus.display.brightness.hbm_ys" "ro.oplus.display.brightness.default_brightness" "ro.oplus.display.brightness.normal_max_brightness" "ro.oplus.display.brightness.max_brightness" "ro.oplus.display.brightness.normal_min_brightness" "ro.oplus.display.brightness.min_light_in_dnm" "ro.oplus.display.brightness.smooth" "ro.display.brightness.brightness.mode" "ro.display.brightness.mode.exp.per_20" "ro.vendor.display.AIRefreshRate.brightness" "ro.oplus.display.dwb.threshold" "ro.oplus.display.colormode.vivid" "ro.oplus.display.colormode.soft" "ro.oplus.display.colormode.cinema" "ro.oplus.display.colormode.colorful" )
+# Fix wechat/whatsapp volume isue
+cp -rf build/baserom/images/my_product/etc/audio*.xml build/portrom/images/my_product/etc/
+cp -rf build/baserom/images/my_product/etc/default_volume_tables.xml build/portrom/images/my_product/etc/
+if [[ -d build/baserom/images/my_product/etc/breenospeech2 ]];then
+    cp -rf build/baserom/images/my_product/etc/breenospeech2/* build/portrom/images/my_product/etc/breenospeech2/
+fi
+rm -rf build/portrom/images/my_product/etc/fusionlight_profile/*
+cp -rf build/baserom/images/my_product/etc/fusionlight_profile/*  build/portrom/images/my_product/etc/fusionlight_profile/
+# Fix game audio issue on 15.0.2 (13t)
+sed -i "/ro.oplus.audio.*/d" build/portrom/images/my_product/build.prop
+remove_prop "persist.oplus.software.audio.right_volume_key"
+remove_prop "persist.oplus.software.alertslider.location"
 
-for prop in "${props[@]}" ; do
-    base_prop_value=$(grep "$prop=" build/baserom/images/my_product/build.prop | cut -d '=' -f2)
-    target_prop_value=$(grep "$prop=" build/portrom/images/my_product/build.prop | cut -d '=' -f2)
-    if [[ -n $target_prop_value ]];then
-        sed -i "s|${prop}=.*|${prop}=${base_prop_value}|g" build/portrom/images/my_product/build.prop
-    else
-        echo "${prop}=$base_prop_value" >> build/portrom/images/my_product/build.prop
-    fi
-done
+update_prop_from_base
 
-sed -i "s/persist.oplus.software.audio.right_volume_key=.*/persist.oplus.software.audio.right_volume_key=false/g" build/portrom/images/my_product/build.prop
-sed -i "s/persist.oplus.software.alertslider.location=.*/persist.oplus.software.alertslider.location=/g" build/portrom/images/my_product/build.prop
-sed -i "s/persist.sys.oplus.anim_level=.*/persist.sys.oplus.anim_level=2/g" build/portrom/images/my_product/build.prop
+sed -i "s/persist.sys.oplus.anim_level=.*/persist.sys.oplus.anim_level=1/g" build/portrom/images/my_product/build.prop
 
+remove_prop "ro.oplus.resolution"
+remove_prop "ro.oplus.display.wm_size_resolution_switch.support"
+remove_prop "ro.density.screenzoom"
+remove_prop "ro.oplus.resolution"
+remove_prop "ro.oplus.density.qhd_default"
+remove_prop "ro.oplus.density.fhd_default"
+remove_prop "ro.oplus.key.actionbutton"
+remove_prop "ro.oplus.audio.support.foldingmode"
+remove_prop "ro.config.fold_disp"
+remove_prop "persist.oplus.display.fold.support"
+remove_prop "ro.oplus.haptic"
+# OnePlus 8T: Fix OpSynergy crash 
+remove_prop "persist.sys.oplus.wlan.atpc.qcom_use_iw"
 cp -rf build/baserom/images/my_product/app/com.oplus.vulkanLayer build/portrom/images/my_product/app/
 cp -rf build/baserom/images/my_product/app/com.oplus.gpudrivers.sm8250.api30 build/portrom/images/my_product/app/
 
@@ -515,49 +646,31 @@ cp -rf  build/baserom/images/my_product/non_overlay build/portrom/images/my_prod
 cp -rf  build/baserom/images/my_product/etc/sys_resolution_switch_config.xml build/portrom/images/my_product/etc/sys_resolution_switch_config.xml
 
 cp -rf build/baserom/images/my_product/etc/permissions/com.oplus.sensor_config.xml build/portrom/images/my_product/etc/permissions/
-add_feature "com.android.systemui.support_media_show" build/portrom/images/my_product/etc/extension/com.oplus.app-features.xml
+# add_feature "com.android.systemui.support_media_show" build/portrom/images/my_product/etc/extension/com.oplus.app-features.xml
 
 add_feature "oplus.software.support_blockable_animation" build/portrom/images/my_product/etc/extension/com.oplus.oplus-feature.xml
 
 add_feature "oplus.software.support_quick_launchapp" build/portrom/images/my_product/etc/extension/com.oplus.oplus-feature.xml
 
-features=("oplus.software.display.intelligent_color_temperature_support" "oplus.software.display.dual_sensor_support" "oplus.software.display.lock_color_temperature_in_drag_brightness_bar_support" "oplus.software.display.smart_color_temperature_rhythm_health_support" "oplus.software.display.lhdr_only_dimming_support" "oplus.software.display.screen_calibrate_100apl" "oplus.software.display.rgb_ball_support" "oplus.software.display.screen_select" "oplus.software.display.origin_roundcorner_support")
-
-for feature in "${features[@]}" ; do 
-    add_feature "$feature" "build/portrom/images/my_product/etc/permissions/oplus.product.display_features.xml"
-done
-
-#Virbation feature
-add_feature "oplus.software.vibration_intensity_ime" build/portrom/images/my_product/etc/permissions/oplus.feature.android.xml
-add_feature "oplus.software.vibration_tripartite_adaptation" build/portrom/images/my_product/etc/permissions/oplus.feature.android.xml
-remove_feature "oplus.software.vibrator_qcom_lmvibrator" 
-remove_feature "oplus.software.vibrator_richctap" 
-remove_feature "oplus.software.vibrator_luxunvibrator" 
-remove_feature "oplus.software.haptic_vibrator_v1.support" 
-remove_feature "oplus.software.haptic_vibrator_v2.support" 
-remove_feature "oplus.hardware.vibrator_oplus_v1" 
-remove_feature "oplus.hardware.vibrator_xlinear_type"
-remove_feature "oplus.hardware.vibrator_style_switch"
-
-# Disable DPI switch
-remove_feature "oplus.software.display.resolution_switch_support"
-
-remove_feature "oplus.software.view.rgbnormalize"
-#Remove Wireless charge support
-remove_feature "os.charge.settings.wirelesscharge.support" 
-remove_feature "oplus.power.onwirelesscharger.support"
-remove_feature "com.oplus.battery.wireless.charging.notificate"
-
-#Display Colormode 
-add_feature "oplus.software.display.colormode_calibrate_p3_65_support" build/portrom/images/my_product/etc/permissions/oplus.product.feature_multimedia_unique.xml
-add_feature "oplus.software.game_engine_vibrator_v1.support" build/portrom/images/my_product/etc/permissions/oplus.product.features_gameeco_common.xml
 #Reno 12 Feature 
 add_feature 'os.personalization.wallpaper.live.ripple.enable" args="boolean:true' build/portrom/images/my_product/etc/extension/com.oplus.app-features.xml
 add_feature "os.personalization.flip.agile_window.enable" build/portrom/images/my_product/etc/extension/com.oplus.app-features.xml
-# Oneplus Alert Slider, Needed for RealmeUI
-if grep -q "oplus.software.audio.alert_slider"  build/portrom/images/my_product/etc/permissions/* ;then
-    add_feature "oplus.software.audio.alert_slider" build/portrom/images/my_product/etc/permissions/oplus.product.feature_multimedia_unique.xml
-fi
+
+#修复切换屏幕色彩模式软重启
+remove_feature "oplus.software.display.wcg_2.0_support"
+
+#echo "ro.surface_flinger.supports_background_blur=1" >> build/portrom/images/my_product/build.prop
+#echo "ro.surface_flinger.media_panel_bg_blur=1" >> build/portrom/images/my_product/build.prop
+
+add_feature 'com.coloros.colordirectservice.cm_enable" args="boolean:true' build/portrom/images/my_product/etc/extension/com.oplus.app-features.xml
+
+add_feature 'os.graphic.gallery.os15_secrecy" args="boolean:true' build/portrom/images/my_product/etc/extension/com.oplus.app-features.xml
+
+add_feature "oplus.software.support.zoom.multi_mode" build/portrom/images/my_product/etc/extension/com.oplus.oplus-feature.xml
+
+add_feature "com.oplus.smartsidebar.space.roulette.support" build/portrom/images/my_product/etc/extension/com.oplus.app-features.xml
+add_feature "com.oplus.smartsidebar.space.roulette.bootreg" build/portrom/images/my_product/etc/extension/com.oplus.app-features.xml
+add_feature "com.oplus.infocollection.screen.recognition" build/portrom/images/my_product/etc/extension/com.oplus.app-features.xml
 
 remove_feature "com.android.settings.processor_detail_gen2"
 remove_feature "com.android.settings.processor_detail"
@@ -565,6 +678,9 @@ remove_feature "os.charge.settings.wirelesscharge.support"
 remove_feature "com.oplus.battery.wireless.charging.notificate"
 remove_feature "os.charge.settings.wirelesscharging.power"
 remove_feature "os.charge.settings.wirelesschargingcoil.position"
+remove_feature "oplus.power.onwirelesscharger.support"
+remove_feature "os.charge.settings.batterysettings.batteryhealth"
+cp -rf  build/baserom/images/my_product/vendor/etc/* build/portrom/images/my_product/vendor/etc/
 
  # Camera
 cp -rf  build/baserom/images/my_product/etc/camera/* build/portrom/images/my_product/etc/camera
@@ -584,35 +700,253 @@ else
    echo "ro.vendor.oplus.camera.isSupportExplorer=1" >> build/portrom/images/my_product/build.prop
 fi
 
-cp -rf  build/baserom/images/my_product/vendor/etc/* build/portrom/images/my_product/vendor/etc/
+base_oplus_camera_dir=$(find build/baserom/images/my_product -type d -name "OplusCamera")
+port_oplus_camera_dir=$(find build/portrom/images/my_product -type d -name "OplusCamera")
 
-rm -rf  build/portrom/images/my_product/priv-app/*
-rm -rf  build/portrom/images/my_product/app/OplusCamera
-cp -rf build/baserom/images/my_product/priv-app/* build/portrom/images/my_product/priv-app
+if [[ -d "${base_oplus_camera_dir}" ]] && [[ -d "${port_oplus_camera_dir}" ]];then
+    rm -rf "$port_oplus_camera_dir"/* 
+    cp -rf "$base_oplus_camera_dir"/* "$port_oplus_camera_dir"/
+    cp -rf build/baserom/images/my_product/product_overlay/framework/* build/portrom/images/my_product/product_overlay/framework/
+else
+  rm -rf build/portrom/images/my_product/product_overlay/framework/*
+  cp -rf build/baserom/images/my_product/product_overlay/* build/portrom/images/my_product/product_overlay/
+fi
 
-cp -rf  build/baserom/images/my_product/product_overlay/*  build/portrom/images/my_product/product_overlay/
+base_scanner_app=$(find build/baserom/images/ -type d -name "OcrScanner")
+target_scanner_app=$(find build/portrom/images/ -type d -name "OcrScanner")
+if [[ -n $base_scanner_app ]] && [[ -n $target_scanner_app ]];then
+    blue "替换原版扫一扫" "Replacing Stock OrcScanner"
+    rm -rfv $target_scanner_app/*
+    cp -rfv $base_scanner_app $target_scanner_app
+fi
+
+if [[ ${base_device_family} == "OPSM8250" ]]; then
+  camera_optimize_file=$(find build/portrom/images/ -type f -name "sys_camera_optimize_config.xml")
+  # Fix wechat /alipay scan crash issue
+   if [[ -f $camera_optimize_file ]]; then
+      rm -f $camera_optimize_file
+   fi
+fi
+sourceOvoiceManagerService=$(find build/baserom/images/my_product -type d -name "OVoiceManagerService")
+if [[ -d "$sourceOvoiceManagerService" ]];then
+    targetOvoiceManagerService=$(find build/portrom/images/my_product -type d -name "OVoiceManagerService")
+    if [[ -d "$targetOvoiceManagerService" ]];then
+       # rm -rfv $targetOvoiceManagerService/* 
+        cp -rfv $sourceOvoiceManagerService/* $targetOvoiceManagerService/
+    else
+        cp -rfv $sourceOvoiceManagerService build/portrom/images/my_product/priv-app/
+    fi
+fi
+
+if [[ ${base_product_device} == "OnePlus8T" ]];then 
+    # Voice_trigger for OnePlus 8T
+    add_feature "oplus.software.audio.voice_wakeup_support" build/portrom/images/my_product/etc/permissions/oplus.product.feature_multimedia_unique.xml
+    add_feature "oplus.software.audio.voice_wakeup_3words_support" build/portrom/images/my_product/etc/extension/com.oplus.oplus-feature.xml
+    #add_feature "oplus.software.speechassist.oneshot.support" build/portrom/images/my_product/etc/extension/com.oplus.oplus-feature.xml
+    unzip -o ${work_dir}/devices/common/voice_trigger_fix.zip -d ${work_dir}/build/portrom/images/
+fi
+
+
+cp -rf build/baserom/images/my_product/etc/Multimedia_*.xml build/portrom/images/my_product/etc/
+
+
+if [[ -f "tmp/etc/permissions/multimedia_privapp-permissions-oplus.xml" ]];then
+    cp -rfv tmp/etc/permissions/multimedia_*.xml build/portrom/images/my_product/etc/permissions/
+fi
+
+
+
+for file in $(find build/baserom/images/my_product/etc/ -type f -name "OVMS_*");do
+    if [[ -f "$file" ]];then
+        cp -rfv $file build/portrom/images/my_product/etc/
+    fi
+done
 
 # bootanimation
-cp -rf build/baserom/images/my_product/media/bootanimation/* build/portrom/images/my_product/media/bootanimation/
+rm -rf build/portrom/images/my_product/media/*
+cp -rf build/baserom/images/my_product/media/* build/portrom/images/my_product/media/
 
+rm -rf build/portrom/images/my_product/res/*
+cp -rf build/baserom/images/my_product/res/* build/portrom/images/my_product/res/
+
+rm -rf build/portrom/images/my_product/vendor/*
+cp -rf build/baserom/images/my_product/vendor/* build/portrom/images/my_product/vendor/
 rm -rf  build/portrom/images/my_product/overlay/*"${port_my_product_type}".apk
 for overlay in $(find build/baserom/images/ -type f -name "*${base_my_product_type}*".apk);do
     cp -rf $overlay build/portrom/images/my_product/overlay/
 done
+
+super_computing=$(find build/portrom/images/my_product -name "string_super_computing*")
+if [[ ! -f $super_computing ]];then
+    cp -rf devices/common/super_computing/* build/portrom/images/my_product/etc/
+fi
+
 baseCarrierConfigOverlay=$(find build/baserom/images/ -type f -name "CarrierConfigOverlay*.apk")
 portCarrierConfigOverlay=$(find build/portrom/images/ -type f -name "CarrierConfigOverlay*.apk")
 if [ -f "${baseCarrierConfigOverlay}" ] && [ -f "${portCarrierConfigOverlay}" ];then
     blue "正在替换 [CarrierConfigOverlay.apk]" "Replacing [CarrierConfigOverlay.apk]"
     rm -rf ${portCarrierConfigOverlay}
     cp -rf ${baseCarrierConfigOverlay} $(dirname ${portCarrierConfigOverlay})
+else
+    cp -rf ${baseCarrierConfigOverlay} build/portrom/images/my_product/overlay/
 fi
 
-add_feature "android.hardware.biometrics.face"  build/portrom/images/my_product/etc/permissions/com.oplus.android-features.xml
 
-add_feature "android.hardware.fingerprint" build/portrom/images/my_product/etc/permissions/com.oplus.android-features.xml
+# RealmeUI 独占功能
 
-add_feature "oplus.software.display.eyeprotect_paper_textre_support" build/portrom/images/my_product/etc/permissions/oplus.product.feature_multimedia_unique.xml
+add_feature "com.oplus.gesture.camera_space_gesture_support" build/portrom/images/my_product/etc/extension/com.oplus.app-features.xml
+add_feature "com.oplus.gesture.intelligent_perception" build/portrom/images/my_product/etc/extension/com.oplus.app-features.xml
+add_feature "com.oplus.eyeprotect.ai_intelligent_eye_protect_support" build/portrom/images/my_product/etc/extension/com.oplus.app-features.xml
+add_feature "com.android.systemui.aod_notification_infor_text" build/portrom/images/my_product/etc/extension/com.oplus.app-features.xml
+add_feature "com.android.settings.network_access_permission" build/portrom/images/my_product/etc/extension/com.oplus.app-features.xml
+add_feature 'com.oplus.mediacontroller.fluidConfig" args="String:{&quot;statusbar_enable_default&quot;:1}' build/portrom/images/my_product/etc/extension/com.oplus.app-features.xml
+add_feature "oplus.software.audio.media_control" build/portrom/images/my_product/etc/permissions/oplus.product.feature_multimedia_unique.xml
+add_feature "com.oplus.smartsidebar.space.roulette.bootreg" build/portrom/images/my_product/etc/extension/com.oplus.app-features.xml
 
+add_feature "os.charge.settings.longchargeprotection.ai" build/portrom/images/my_product/etc/extension/com.oplus.app-features.xml
+add_feature "com.oplus.gesture.intelligent_perception" build/portrom/images/my_product/etc/extension/com.oplus.app-features.xml
+add_feature "com.oplus.battery.support.gt_open_gamecenter" build/portrom/images/my_product/etc/extension/com.oplus.app-features.xml
+add_feature "com.android.settings.device_rm" build/portrom/images/my_product/etc/extension/com.oplus.app-features.xml
+add_feature "oplus.software.support.gt.mode" build/portrom/images/my_product/etc/extension/com.oplus.oplus-feature.xml
+add_feature "oplus.software.support.gt.mode" build/portrom/images/my_product/etc/permissions/oplus.feature.android.xml
+
+add_feature "feature.support.game.AI_PLAY" build/portrom/images/my_product/etc/extension/com.oplus.app-features.xml
+add_feature "feature.hottouch.anim.support" build/portrom/images/my_product/etc/extension/com.oplus.app-features.xml
+add_feature "com.oplus.exserviceui.feature_zoom_drag" build/portrom/images/my_product/etc/extension/com.oplus.app-features.xml
+
+
+#add_feature 'space_roulette_switch" value="1" category="secure' build/portrom/images/my_product/etc/extension/config_product_com.android.providers.settings.xml
+
+add_feature "oplus.software.support.zoom.open_wechat_mimi_program"  build/portrom/images/my_product/etc/permissions/oplus.feature.android.xml
+add_feature "oplus.software.support.zoom.center_exit" build/portrom/images/my_product/etc/permissions/oplus.feature.android.xml
+
+add_feature "oplus.software.support.zoom.game_enter" build/portrom/images/my_product/etc/permissions/oplus.feature.android.xml
+
+add_feature "ooplus.software.coolex.support" build/portrom/images/my_product/etc/permissions/oplus.feature.android.xml
+
+add_feature "oplus.gpu.controlpanel.support" build/portrom/images/my_product/etc/permissions/oplus.feature.android.xml
+
+add_feature "oplus.software.display.game.dapr_enable"   build/portrom/images/my_product/etc/permissions/oplus.product.features_gameeco_unique.xml
+
+add_feature "oplus.software.display.eyeprotect_game_support" build/portrom/images/my_product/etc/permissions/oplus.product.display_features.xml
+
+
+add_feature "com.oplus.smartsidebar.space.roulette.support" build/portrom/images/my_product/etc/extension/com.oplus.app-features.xml
+#patch_smartsidecar
+
+#add_feature "oplus.software.display.eyeprotect_paper_texture_support" build/portrom/images/my_product/etc/extension/com.oplus.oplus-feature.xml
+
+#add_feature "oplus.software.display.reduce_brightness_rm" build/portrom/images/my_product/etc/permissions/oplus.product.feature_multimedia_unique.xml
+#add_feature "oplus.software.display.reduce_brightness_rm_manual" build/portrom/images/my_product/etc/permissions/oplus.product.feature_multimedia_unique.xml
+
+#add_feature "oplus.software.display.brightness_memory_rm" build/portrom/images/my_product/etc/permissions/oplus.product.feature_multimedia_unique.xml
+#add_feature "oplus.software.display.sec_max_brightness_rm" build/portrom/images/my_product/etc/permissions/oplus.product.feature_multimedia_unique.xml
+
+{
+    echo "persist.lowbrightnessthreshold=0"
+    echo "persist.sys.renderengine.maxLuminance=500"
+    #echo "ro.oplus.display.brightness.min_settings.rm=1,1,25,4.0,0"
+    echo "ro.oplus.display.peak.brightness.duration_time=15"
+    echo "ro.oplus.display.peak.brightness.effect_interval_time=1800000"
+    echo "ro.oplus.display.peak.brightness.effect_times_every_day=2"
+    echo "ro.display.brightness.thread.priority=true"
+
+} >> build/portrom/images/my_product/build.prop
+
+# 强光模式选项开关
+add_feature "oplus.software.display.manual_hbm.support" build/portrom/images/my_product/etc/permissions/oplus.product.display_features.xml
+echo "ro.oplus.display.sell_mode.max_normal_nit=800" >> build/portrom/images/my_product/build.prop
+
+add_feature "com.oplus.software.support.mini_capsule" build/portrom/images/my_product/etc/extension/com.oplus.app-features.xml
+add_feature "android.hardware.biometrics.face"  build/portrom/images/my_product/etc/permissions/android.hardware.fingerprint.xml
+
+remove_feature "oplus.software.display.origin_roundcorner_support"
+add_feature "oplus.software.display.smart_color_temperature_rhythm_health_support" build/portrom/images/my_product/etc/permissions/oplus.product.display_features.xml
+
+#人声突显
+add_feature "oplus.hardware.audio.voice_isolation_support" build/portrom/images/my_product/etc/permissions/oplus.product.feature_multimedia_unique.xml
+add_feature "oplus.hardware.audio.voice_denoise_support" build/portrom/images/my_product/etc/permissions/oplus.product.feature_multimedia_unique.xml
+
+
+add_feature "oplus.software.radio.networkless_support" build/portrom/images/my_product/etc/extension/com.oplus.oplus-feature.xml
+
+# add_feature "com.oplus.humming_bird_enable" build/portrom/images/my_product/etc/extension/com.oplus.app-features.xml
+
+add_feature "com.oplus.mediaturbo.service" build/portrom/images/my_product/etc/extension/com.oplus.app-features.xml
+
+# removed from PKJ110_15.0.1.401
+add_feature 'com.oplus.note.aigc.ai_rewrtie.support" args="boolean:true' build/portrom/images/my_product/etc/extension/com.oplus.app-features.xml
+
+add_feature 'com.oplus.mediaturbo.tencent_meeting" args="boolean:true'  build/portrom/images/my_product/etc/extension/com.oplus.app-features.xml
+add_feature  "oplus.software.directservice.finger_flashnotes_enable" build/portrom/images/my_product/etc/extension/com.oplus.oplus-feature.xml
+
+if grep -q "oplus.software.audio.alert_slider"  build/portrom/images/my_product/etc/permissions/* ;then
+    add_feature "oplus.software.audio.alert_slider" build/portrom/images/my_product/etc/permissions/oplus.product.feature_multimedia_unique.xml
+fi
+
+#  add for multi-application volume adjustment (OnePlus 8/8Pro Android 13 require this)
+add_feature "oplus.software.multi_app.volume.adjust.support" build/portrom/images/my_product/etc/permissions/oplus.product.feature_multimedia_unique.xml
+
+#直播助手
+add_feature "com.oplus.mediaturbo.game_live" build/portrom/images/my_product/etc/extension/com.oplus.app-features.xml
+
+#护眼提醒
+add_feature "oplus.software.display.ai_eyeprotect_v1_support" build/portrom/images/my_product/etc/extension/com.oplus.oplus-feature.xml
+
+#点击屏幕唤醒息屏
+add_feature "oplus.aod.wakebyclick.support" build/portrom/images/my_product/etc/extension/com.oplus.app-features.xml
+
+#区域截图
+add_feature 'com.oplus.screenrecorder.area_record" args="boolean:true' build/portrom/images/my_product/etc/extension/com.oplus.app-features.xml
+
+remove_feature "oplus.power.wirelesschgwhenwired.support"
+
+remove_feature "oplus.software.vibration_ring_mute"
+remove_feature  "oplus.software.vibration_alarm_clock"
+remove_feature  "oplus.software.vibration_ringtone"
+remove_feature  "oplus.software.vibration_threestage_key"
+
+if [[ -d build/baserom/images/my_product/etc/vibrator ]];then
+    rm -rfv build/portrom/images/my_product/etc/vibrator
+    cp -rfv build/baserom/images/my_product/etc/vibrator build/portrom/images/my_product/etc/
+fi
+
+remove_feature "oppo.common.support.curved.display"
+
+remove_feature "oplus.feature.largescreen"
+remove_feature "oplus.feature.largescreen.land"
+remove_feature "oplus.software.audio.audioeffect_support"
+remove_feature "oplus.software.audio.audiox_support"
+
+remove_feature "oppo.breeno.three.words.support"
+
+remove_feature "oplus.software.vibrator_qcom_lmvibrator"
+remove_feature "oplus.hardware.vibrator_style_switch"
+remove_feature "oplus.software.vibrator_luxunvibrator"
+remove_feature "oplus.software.palmprint_non_unify"
+remove_feature "oplus.software.palmprint_v1"
+remove_feature "oplus.software.palmprint"
+remove_feature "os.charge.settings.wirelesscharge.support"
+remove_feature "com.oplus.battery.wireless.charging.notificate"
+remove_feature "os.charge.settings.wirelesscharging.power"
+remove_feature "os.charge.settings.wirelesschargingcoil.position"
+remove_feature "oplus.power.onwirelesscharger.support"
+
+sourceAONService=$(find build/baserom/images/my_product -type d -name "AONService")
+
+if [[ -d "$sourceAONService" ]];then
+    targetAONService=$(find build/portrom/images/my_product -type d -name "AONService")
+    if [[ -d "$targetAONService" ]];then
+        rm -rfv $targetAONService/* 
+        cp -rfv $sourceAONService/* $targetAONService/
+    else
+        cp -rfv $sourceAONService build/portrom/images/my_product/app/
+    fi
+	
+	add_feature "oplus.software.aon_pay_qrcode_enable" build/portrom/images/my_product/etc/extension/com.oplus.oplus-feature.xml
+	remove_feature "oplus.software.aon_sensorhub_enable" 
+
+fi
 
 #自定义替换
 
