@@ -246,6 +246,7 @@ port_oplusrom_version=$(< build/portrom/images/my_product/build.prop grep "ro.bu
 
 #regionmark=$(< build/portrom/images/my_bigball/etc/region/build.prop grep "ro.vendor.oplus.regionmark" |awk 'NR==1' |cut -d '=' -f 2)
 regionmark=$(find build/portrom/images/ -name build.prop -exec grep -m1 "ro.vendor.oplus.regionmark=" {} \; -quit | cut -d '=' -f2)
+vendor_cpu_abilist32=$(< build/portrom/images/vendor/build.prop grep "ro.vendor.product.cpu.abilist32" |awk 'NR==1' |cut -d '=' -f 2 )
 
 
 if grep -q "ro.build.ab_update=true" build/portrom/images/vendor/build.prop;  then
@@ -255,12 +256,9 @@ else
 
 fi
 
-if [[ ! -f build/portrom/images/system/system/bin/app_process32 ]]; then
-    blue "64bit only protrom detected. Pathcing 32bit "
-    sed -i "s/ro.system.product.cpu.abilist=.*/ro.system.product.cpu.abilist=arm64-v8a,armeabi-v7a,armeabi/g" build/portrom/images/system/system/build.prop
-    sed -i "s/ro.system.product.cpu.abilist32=.*/ro.system.product.cpu.abilist32=armeabi-v7a,armeabi/g" build/portrom/images/system/system/build.prop
-
-    cp -rfv devices/32-libs/* build/portrom/images/
+if [[ ! -f build/portrom/images/system/system/bin/app_process32 && -n "$vendor_cpu_abilist32" ]]; then
+    error "64bit only protrom detected. Aborting,Please re-select a 32-bit compatible device(eg: OnePlus 12R,Oppo Find N3) " "该机型不再支持移植64bit-only，请选择兼容32位的包来移植（比如一加12R、Oppo Find N3）"
+    exit 1
 fi
 
 if [[ -f devices/${base_product_device}/config ]];then
@@ -324,15 +322,15 @@ for (( i=0; i<${#smalis[@]}; i++ )); do
 done
 
 target_method='getMinimumSignatureSchemeVersionForTargetSdk' 
-    old_smali_dir=""
-    declare -a smali_dirs
+old_smali_dir=""
+declare -a smali_dirs
 
-    while read -r smali_file; do
-        smali_dir=$(echo "$smali_file" | cut -d "/" -f 3)
+while read -r smali_file; do
+    smali_dir=$(echo "$smali_file" | cut -d "/" -f 3)
 
-        if [[ $smali_dir != $old_smali_dir ]]; then
-            smali_dirs+=("$smali_dir")
-        fi
+    if [[ $smali_dir != $old_smali_dir ]]; then
+        smali_dirs+=("$smali_dir")
+    fi
 
         method_line=$(grep -n "$target_method" "$smali_file" | cut -d ':' -f 1)
         register_number=$(tail -n +"$method_line" "$smali_file" | grep -m 1 "move-result" | tr -dc '0-9')
@@ -458,6 +456,17 @@ if [[ ${base_android_version} == 13 ]] && [[ ${port_android_version} == 15 ]];th
         cp -rf devices/common/a13_blobs_update/odm/lib64/vendor.oplus.hardware.commondcs-V1-ndk_platform.so build/portrom/images/odm/lib64
     fi
 fi
+# Remove OTA dm-verity
+targetOTA=$(find build/portrom/images/ -name "OTA.apk")
+
+if [[ -f $targetOTA ]];then
+    blue "Removing OTA dm-verity"
+    cp -rf $targetOTA tmp/$(basename $targetOTA).bak
+    java -jar bin/apktool/APKEditor.jar d -f -i $targetOTA -o tmp/OTA $extra_args
+    targetSmali=$(find tmp -type f -path "*/com/oplus/common/a.smali")
+    python3 bin/patchmethod_v2.py -d tmp/OTA -k ro.boot.vbmeta.device_state locked -return false 
+    java -jar bin/apktool/APKEditor.jar b -f -i tmp/OTA -o $targetOTA $extra_args
+fi
 yellow "删除多余的App" "Debloating..." 
 # List of apps to be removed
 
@@ -524,7 +533,7 @@ elif [[ $super_extended == "false" ]] && [[ $base_product_model == "KB200"* ]];t
     rm -rfv build/portrom/images/my_stock/del-app/*
 elif [[ $super_extended == "false" ]] && [[ $base_product_model == "LE2101" ]];then
     debloat_apps=("Facebook" "YTMusic" "GoogleHome" "Videos_del" "Drive_del" "ConsumerIRApp" "YouTube" "Gmail2" "Maps")
-for debloat_app in "${debloat_apps[@]}"; do
+    for debloat_app in "${debloat_apps[@]}"; do
     # Find the app directory
     app_dir=$(find build/portrom/images/ -type d -name "*$debloat_app*")
     
@@ -533,7 +542,7 @@ for debloat_app in "${debloat_apps[@]}"; do
         yellow "删除目录: $app_dir" "Removing directory: $app_dir"
         rm -rf "$app_dir"
     fi
-done
+    done
   rm -rfv build/portrom/images/my_stock/del-app/*
 fi
 rm -rf build/portrom/images/product/etc/auto-install*
@@ -596,7 +605,7 @@ else
 
 # fix bootloop
 if [[ -f build/baserom/images/my_product/etc/extension/sys_game_manager_config.json ]];then
-cp -rf build/baserom/images/my_product/etc/extension/sys_game_manager_config.json build/portrom/images/my_product/etc/extension/
+    cp -rf build/baserom/images/my_product/etc/extension/sys_game_manager_config.json build/portrom/images/my_product/etc/extension/
 else
     rm -rf build/portrom/images/my_product/etc/extension/sys_game_manager_config.json
 fi
@@ -702,7 +711,7 @@ remove_feature "os.charge.settings.batterysettings.batteryhealth"
 cp -rf  build/baserom/images/my_product/vendor/etc/* build/portrom/images/my_product/vendor/etc/
 
  # Camera
-cp -rf  build/baserom/images/my_product/etc/camera/* build/portrom/images/my_product/etc/camera
+ cp -rf  build/baserom/images/my_product/etc/camera/* build/portrom/images/my_product/etc/camera
 
 old_camera_app=$(find build/baserom/images/my_product -type f -name "OnePlusCamera.apk")
 if [[ -f $old_camera_app ]];then
