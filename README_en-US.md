@@ -26,6 +26,7 @@
 - Camera
 - Automatic Brightness
 - NFC
+- Wired Earphone
 - etc
 
 
@@ -34,7 +35,6 @@
 - AOD is too dim
 - Voice trigger is not working
 - Poweroff charging is not working
-- WiredEarphone is not working
 
 ## How to use
 - On WSL、ubuntu、deepin and other Linux

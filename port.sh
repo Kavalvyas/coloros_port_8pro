@@ -630,6 +630,46 @@ if [[ -d build/baserom/images/my_product/etc/breenospeech2 ]];then
 fi
 rm -rf build/portrom/images/my_product/etc/fusionlight_profile/*
 cp -rf build/baserom/images/my_product/etc/fusionlight_profile/*  build/portrom/images/my_product/etc/fusionlight_profile/
+# Fix wired earphone issue
+blue "修复有线耳机问题" "Fix wired earphone issue"
+
+# Copy audio policy and mixer configuration for proper earphone detection
+if [[ -f build/baserom/images/vendor/etc/audio_policy_configuration.xml ]];then
+    cp -rf build/baserom/images/vendor/etc/audio_policy_configuration.xml build/portrom/images/vendor/etc/
+fi
+
+if [[ -f build/baserom/images/vendor/etc/mixer_paths.xml ]];then
+    cp -rf build/baserom/images/vendor/etc/mixer_paths.xml build/portrom/images/vendor/etc/
+fi
+
+if [[ -f build/baserom/images/vendor/etc/mixer_paths_tasha.xml ]];then
+    cp -rf build/baserom/images/vendor/etc/mixer_paths_tasha.xml build/portrom/images/vendor/etc/
+fi
+
+if [[ -f build/baserom/images/vendor/etc/mixer_paths_tavil.xml ]];then
+    cp -rf build/baserom/images/vendor/etc/mixer_paths_tavil.xml build/portrom/images/vendor/etc/
+fi
+
+# Copy ODM audio configuration files for earphone support
+if [[ -f build/baserom/images/odm/etc/audio_policy_configuration.xml ]];then
+    cp -rf build/baserom/images/odm/etc/audio_policy_configuration.xml build/portrom/images/odm/etc/
+fi
+
+if [[ -f build/baserom/images/odm/etc/mixer_paths.xml ]];then
+    cp -rf build/baserom/images/odm/etc/mixer_paths.xml build/portrom/images/odm/etc/
+fi
+
+# Copy audio codec configuration files
+if [[ -d build/baserom/images/vendor/etc/acdbdata ]];then
+    rm -rf build/portrom/images/vendor/etc/acdbdata
+    cp -rf build/baserom/images/vendor/etc/acdbdata build/portrom/images/vendor/etc/
+fi
+
+if [[ -d build/baserom/images/odm/etc/acdbdata ]];then
+    rm -rf build/portrom/images/odm/etc/acdbdata
+    cp -rf build/baserom/images/odm/etc/acdbdata build/portrom/images/odm/etc/
+fi
+
 # Fix game audio issue on 15.0.2 (13t)
 sed -i "/ro.oplus.audio.*/d" build/portrom/images/my_product/build.prop
 remove_prop "persist.oplus.software.audio.right_volume_key"
@@ -895,6 +935,12 @@ add_feature "oplus.software.display.smart_color_temperature_rhythm_health_suppor
 add_feature "oplus.hardware.audio.voice_isolation_support" build/portrom/images/my_product/etc/permissions/oplus.product.feature_multimedia_unique.xml
 add_feature "oplus.hardware.audio.voice_denoise_support" build/portrom/images/my_product/etc/permissions/oplus.product.feature_multimedia_unique.xml
 
+# Wired earphone support features
+add_feature "oplus.hardware.audio.headset_support" build/portrom/images/my_product/etc/permissions/oplus.product.feature_multimedia_unique.xml
+add_feature "oplus.hardware.audio.wired_headset_support" build/portrom/images/my_product/etc/permissions/oplus.product.feature_multimedia_unique.xml
+add_feature "oplus.software.audio.headset_detection" build/portrom/images/my_product/etc/permissions/oplus.product.feature_multimedia_unique.xml
+add_feature "android.hardware.audio.output" build/portrom/images/my_product/etc/permissions/oplus.product.feature_multimedia_unique.xml
+
 
 add_feature "oplus.software.radio.networkless_support" build/portrom/images/my_product/etc/extension/com.oplus.oplus-feature.xml
 
@@ -943,8 +989,9 @@ remove_feature "oppo.common.support.curved.display"
 
 remove_feature "oplus.feature.largescreen"
 remove_feature "oplus.feature.largescreen.land"
-remove_feature "oplus.software.audio.audioeffect_support"
-remove_feature "oplus.software.audio.audiox_support"
+# Keep audio effect support for wired earphones
+# remove_feature "oplus.software.audio.audioeffect_support"
+# remove_feature "oplus.software.audio.audiox_support"
 
 remove_feature "oppo.breeno.three.words.support"
 
