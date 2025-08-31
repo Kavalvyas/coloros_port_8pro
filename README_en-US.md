@@ -1,23 +1,21 @@
 <div align="center">
 
 
-# ColorOS Porting Project
+# ColorOS Porting Project - OnePlus 8 Pro Edition
 
 [简体中文](/README.md)&nbsp;&nbsp;|&nbsp;&nbsp;English
 
 </div>
 
 ## Intro
-- ColorOS Porting Project
+- ColorOS Porting Project optimized specifically for OnePlus 8 Pro
 
 ## Supported Devices
 
-- OnePlus 8 OnePlus 8Pro OnePlus 8T OnePlus 9R(CN)
-- OnePlus 9 OnePlus 9Pro OnePlus 9RT
-- Oppo Find X3 Oppo Find X3 Pro
+- OnePlus 8 Pro only
 
 ## Tested devices and portroms
-- Test Base ROM:  OnePlus 8T (ColorOS_14.0.0.600), OnePlus 8 (ColorOS_IN2010_13.1.190), OnePlus 8 Pro (ColorOS_IN2020_13.1.0.190)
+- Test Base ROM: OnePlus 8 Pro (ColorOS_IN2020_13.1.0.190, ColorOS_14.0.0.600)
 - Test Port ROM: OnePlus 12 (ColorOS_14.0.0.800), OnePlus ACE3V(ColorOS_14.0.1.621)
 
 ## Working
@@ -34,7 +32,7 @@
 
 - AOD is too dim
 - Voice trigger is not working
-- Poweroff charging is not working
+- ~~Poweroff charging is not working~~ - Fixed
 
 ## How to use
 - On WSL、ubuntu、deepin and other Linux
@@ -43,8 +41,8 @@
     sudo apt upgrade
     sudo apt install git -y
     # Clone project
-    git clone https://github.com/toraidl/coloros_port_kebab.git
-    cd coloros_port_kebab
+    git clone https://github.com/Kavalvyas/coloros_port_8pro.git
+    cd coloros_port_8pro
     # Install dependencies
     sudo ./setup.sh
     # Start porting

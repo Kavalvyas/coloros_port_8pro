@@ -1,22 +1,20 @@
 <div align="center">
 
-# ColorOS 移植项目
+# ColorOS 移植项目 - OnePlus 8 Pro 专版
 
 简体中文&nbsp;&nbsp;|&nbsp;&nbsp;[English](/README_en-US.md) 
 
 </div>
 
 ## 简介
-- ColorOS 一键自动移植打包
+- ColorOS 一键自动移植打包，专为 OnePlus 8 Pro 优化
 
 ## 支持机型
 
-- 一加8系列（一加8、一加8Pro、一加8T、一加9R）
-- 一加9系列（OnePlus 9、OnePlus9 RT、OnePlus9 Pro）
-- Oppo Find X3、Oppo Find X3 Pro
+- OnePlus 8 Pro 专用版本
 
 ## 测试机型及版本
-- BASE: OnePlus 8T (ColorOS_14.0.0.600), OnePlus 8 (ColorOS_IN2010_13.1.190), OnePlus 8 Pro (ColorOS_IN2020_13.1.0.190)
+- BASE: OnePlus 8 Pro (ColorOS_IN2020_13.1.0.190, ColorOS_14.0.0.600)
 - PORT: OnePlus 12 (ColorOS_14.0.0.800), OnePlus ACE3V(ColorOS_14.0.1.621)
 
 
@@ -35,7 +33,7 @@
 
 - AOD亮度太低
 - 小布语音唤醒不可用
-- 关机充电不可用（会自动重启）
+- ~~关机充电不可用（会自动重启）~~ - 已修复
 
 ## 如何使用
 - 在WSL、ubuntu、deepin等Linux下
@@ -44,8 +42,8 @@
     sudo apt upgrade
     sudo apt install git -y
     # 克隆项目
-    git clone https://github.com/toraidl/coloros_port_kebab.git
-    cd coloros_port_kebab
+    git clone https://github.com/Kavalvyas/coloros_port_8pro.git
+    cd coloros_port_8pro
     # 安装依赖
     sudo ./setup.sh
     # 开始移植

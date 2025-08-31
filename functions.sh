@@ -519,5 +519,94 @@ patch_smartsidecar() {
     apksigner verify -v $SmartSideBarAPK
 }
 
+# OnePlus 8 Pro specific charging fix to resolve power-off charging issues
+add_charging_fix_for_oneplus_8_pro() {
+    blue "应用OnePlus 8 Pro充电修复" "Applying OnePlus 8 Pro charging fix"
+    
+    # Ensure proper charger service for OnePlus 8 Pro
+    if [[ ${port_android_version} == 15 ]] && [[ ${base_android_version} == 14 ]]; then
+        # Apply V6 charger service for Android 15 port
+        charger_v3=$(find build/portrom/images/odm/bin/hw/ -type f -name "vendor.oplus.hardware.charger-V3-service" 2>/dev/null)
+        if [[ -f $charger_v3 ]]; then
+            blue "更新充电器服务至V6版本" "Updating charger service to V6"
+            unzip -o devices/common/charger-v6-update.zip -d ${work_dir}/build/portrom/images/
+            rm -rf build/portrom/images/odm/bin/hw/vendor.oplus.hardware.charger-V3-service \
+                build/portrom/images/odm/etc/init/vendor.oplus.hardware.charger-V3-service.rc \
+                build/portrom/images/odm/lib/vendor.oplus.hardware.charger-V3-ndk_platform.so \
+                build/portrom/images/odm/lib64/vendor.oplus.hardware.charger-V3-ndk_platform.so
+        fi
+    fi
+    
+    # Add OnePlus 8 Pro specific charging properties to prevent auto-reboot during charging
+    {
+        echo "# OnePlus 8 Pro charging fixes"
+        echo "ro.charger.no_ui=false"
+        echo "ro.charger.enable_suspend=true" 
+        echo "persist.sys.poweroff_charging=1"
+        echo "ro.enable_boot_charger_mode=1"
+        echo "ro.charger.disable_init_blank=true"
+        echo "persist.vendor.charger.debug=true"
+        # Ensure proper power-off charging behavior for OnePlus 8 Pro
+        echo "persist.sys.android.poweroff.charging=1"
+        echo "ro.boottime.init.charger=3000"
+        # OnePlus 8 Pro specific power management
+        echo "ro.charger.enable_led=true"
+        echo "persist.vendor.fastcharge.enable=1"
+        echo "ro.hardware.charger=qcom,pmi8998-charger"
+        echo "persist.sys.chg.curr_volt_now=1"
+        # Prevent automatic reboot during power-off charging
+        echo "persist.vendor.charger.no_reboot=1"
+        echo "ro.sys.poweroff.charging.wakelock=1"
+    } >> build/portrom/images/my_product/build.prop
+    
+    # Copy OnePlus 8 Pro specific charging configuration
+    mkdir -p build/portrom/images/odm/etc/
+    if [[ -f devices/OnePlus8Pro/charging_fix.cfg ]]; then
+        cp devices/OnePlus8Pro/charging_fix.cfg build/portrom/images/odm/etc/charge.cfg
+        blue "已应用OnePlus 8 Pro充电配置" "Applied OnePlus 8 Pro charging configuration"
+    else
+        # Fallback configuration if file doesn't exist
+        {
+            echo "# OnePlus 8 Pro Charging Configuration"
+            echo "POWEROFF_CHARGING_ENABLED=1"
+            echo "CHARGE_LIMIT_ENABLED=1"
+            echo "FAST_CHARGE_ENABLED=1"
+            echo "CHARGER_REBOOT_PREVENTION=1"
+        } > build/portrom/images/odm/etc/charge.cfg
+    fi
+    
+    # Ensure proper init.rc for charging service
+    mkdir -p build/portrom/images/vendor/etc/init/
+    {
+        echo "# OnePlus 8 Pro charging service configuration"
+        echo "on charger"
+        echo "    class_start charger"
+        echo "    write /sys/class/power_supply/battery/input_suspend 0"
+        echo "    write /sys/module/qpnp_power_on/parameters/forcecrash_on 0"
+        echo "    write /sys/module/msm_poweroff/parameters/download_mode 0"
+        echo "    setprop persist.sys.poweroff_charging 1"
+        echo "    setprop ro.charger.no_ui false"
+        echo ""
+        echo "on property:sys.powerctl=*"
+        echo "    write /sys/module/msm_poweroff/parameters/download_mode 0"
+        echo ""
+        echo "# Prevent automatic reboot during charging"
+        echo "on property:ro.bootmode=charger"
+        echo "    write /sys/module/kernel/parameters/panic_on_oops 0"
+        echo "    write /proc/sys/kernel/panic 0"
+    } > build/portrom/images/vendor/etc/init/init.charging.rc
+    
+    # Add OnePlus 8 Pro specific SELinux policy for charging if needed
+    mkdir -p build/portrom/images/vendor/etc/selinux/
+    {
+        echo "# OnePlus 8 Pro charging SELinux policy"
+        echo "allow untrusted_app sysfs_battery_supply:dir search;"
+        echo "allow untrusted_app sysfs_battery_supply:file { read getattr open };"
+        echo "allow system_server charger_service:service_manager find;"
+    } >> build/portrom/images/vendor/etc/selinux/plat_sepolicy.cil 2>/dev/null || true
+    
+    green "OnePlus 8 Pro充电修复已应用" "OnePlus 8 Pro charging fix applied"
+}
+
 trap 'error "强制中断脚本运行，以免误删重要文件！" "Script interrupted! Exiting to prevent accidental deletion." ; exit 1' SIGINT
 
