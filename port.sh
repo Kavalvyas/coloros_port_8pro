@@ -212,6 +212,14 @@ base_product_device=$(< build/baserom/images/my_manifest/build.prop grep "ro.pro
 port_product_device=$(< build/portrom/images/my_manifest/build.prop grep "ro.product.device" |awk 'NR==1' |cut -d '=' -f 2)
 green "Product机型: 底包为 [${base_product_device}], 移植包为 [${port_product_device}]" "Product Device: BASEROM: [${base_product_device}], PORTROM: [${port_product_device}]"
 
+# OnePlus 8 Pro only validation
+if [[ ${base_product_device} != "OnePlus8Pro" ]]; then
+    error "此工具仅支持 OnePlus 8 Pro 设备！当前检测到的设备为: ${base_product_device}" "This tool only supports OnePlus 8 Pro! Detected device: ${base_product_device}"
+    error "请使用 OnePlus 8 Pro 的 ROM 作为底包" "Please use OnePlus 8 Pro ROM as base ROM"
+    exit 1
+fi
+green "✓ 已验证设备兼容性：OnePlus 8 Pro" "✓ Device compatibility verified: OnePlus 8 Pro"
+
 base_product_name=$(< build/baserom/images/my_manifest/build.prop grep "ro.product.name" |awk 'NR==1' |cut -d '=' -f 2)
 port_product_name=$(< build/portrom/images/my_manifest/build.prop grep "ro.product.name" |awk 'NR==1' |cut -d '=' -f 2)
 green "Product名称: 底包为 [${base_product_name}], 移植包为 [${port_product_name}]" "Product Name: BASEROM: [${base_product_name}], PORTROM: [${port_product_name}]"
@@ -237,7 +245,8 @@ target_display_id_show=$(< build/portrom/images/my_manifest/build.prop grep "ro.
 base_vendor_brand=$(< build/baserom/images/my_manifest/build.prop grep "ro.product.vendor.brand" |awk 'NR==1' |cut -d '=' -f 2)
 port_vendor_brand=$(< build/portrom/images/my_manifest/build.prop grep "ro.product.vendor.brand" |awk 'NR==1' |cut -d '=' -f 2)
 
-base_device_family=$(< build/baserom/images/my_product/build.prop grep "ro.build.device_family" |awk 'NR==1' |cut -d '=' -f 2)
+# OnePlus 8 Pro device family detection (SM8250)
+base_device_family="OPSM8250"  # OnePlus 8 Pro uses SM8250 chipset
 target_device_family=$(< build/portrom/images/my_product/build.prop grep "ro.build.device_family" |awk 'NR==1' |cut -d '=' -f 2)
 
 # Security Patch Date
@@ -340,19 +349,15 @@ while read -r smali_file; do
         { sed -i "${orginal_line_number},${move_result_end_line}d" "$smali_file" && sed -i "${orginal_line_number}i\\${replace_with_command}" "$smali_file"; } && blue "${smali_file}  修改成功" "${smali_file} patched"
         old_smali_dir=$smali_dir
     done < <(find tmp/services/smali/*/com/android/server/pm/ tmp/services/smali/*/com/android/server/pm/pkg/parsing/ -maxdepth 1 -type f -name "*.smali" -exec grep -H "$target_method" {} \; | cut -d ':' -f 1)
-if [[ ${base_device_family} == "OPSM8250" ]] || [[ ${base_device_family} == "OPSM8350" ]]; then
-    blue "修复ColorOS15/OxygenOS15 人脸识解锁问题" "COS15/OOS15: Fix Face Unlock for SM8250/8350"
-    #pushd tmp/services
-    #patch -p1 < ${work_dir}/devices/${base_product_device}/0001-face-unlock-fix-for-op8t.patch
-    #popd
-	if [[ -f devices/common/face_unlock_fix_common.zip ]];then
-        rm -rf build/portrom/images/vendor/overlay/*
-        unzip -o devices/common/face_unlock_fix_common.zip -d ${work_dir}/build/portrom/images/
-        
-    fi
-	
-    if [[ -f $old_face_unlock_app ]]; then
-        unzip -o ${work_dir}/devices/${base_product_device}/face_unlock_fix.zip -d ${work_dir}/build/portrom/images/
+# OnePlus 8 Pro specific face unlock fix
+blue "修复OnePlus 8 Pro人脸识解锁问题" "OnePlus 8 Pro: Fix Face Unlock"
+if [[ -f devices/common/face_unlock_fix_common.zip ]];then
+    rm -rf build/portrom/images/vendor/overlay/*
+    unzip -o devices/common/face_unlock_fix_common.zip -d ${work_dir}/build/portrom/images/
+    
+    # Check if OnePlus 8 Pro specific face unlock fix exists
+    if [[ -f devices/OnePlus8Pro/face_unlock_fix.zip ]]; then
+        unzip -o devices/OnePlus8Pro/face_unlock_fix.zip -d ${work_dir}/build/portrom/images/
         rm -rf build/portrom/images/odm/lib/vendor.oneplus.faceunlock.hal@1.0.so
         rm -rf build/portrom/images/odm/bin/hw/vendor.oneplus.faceunlock.hal@1.0-service
         rm -rf build/portrom/images/odm/lib/vendor.oneplus.faceunlock.hal-V1-ndk_platform.so
@@ -360,8 +365,6 @@ if [[ ${base_device_family} == "OPSM8250" ]] || [[ ${base_device_family} == "OPS
         rm -rf build/portrom/images/odm/etc/init/vendor.oneplus.faceunlock.hal@1.0-service.rc
         rm -rf build/portrom/images/odm/lib64/vendor.oneplus.faceunlock.hal@1.0.so
         rm -rf build/portrom/images/odm/lib64/vendor.oneplus.faceunlock.hal-V1-ndk_platform.so
-
-
     fi
 fi
 java -jar bin/apktool/APKEditor.jar b -f -i tmp/services -o tmp/services_patched.jar > /dev/null 2>&1
@@ -390,19 +393,10 @@ if [[ ${base_android_version} == 13 ]] && [[ ${port_android_version} == 14 ]];th
 fi
 
 if [[ ${port_android_version} == 15 ]];then
-
-    if [[ ${base_device_family} == "OPSM8250" ]] && [[ ${base_android_version} != 13 ]] && [[ ${port_android_version} == 15 ]];then
+    # OnePlus 8 Pro specific fixes for Android 15 ports
+    if [[ ${base_android_version} != 13 ]] && [[ ${port_android_version} == 15 ]];then
+        blue "应用OnePlus 8 Pro (SM8250) RIL修复" "Applying OnePlus 8 Pro (SM8250) RIL fix"
         unzip -o devices/common/ril_fix_sm8250.zip -d ${work_dir}/build/portrom/images/
-    elif [[ ${base_device_family} == "OPSM8350" ]];then
-        unzip -o devices/common/ril_fix_sm8350.zip -d ${work_dir}/build/portrom/images/
-        rm -rf build/portrom/images/odm/lib/libmindroid-app.so \
-            build/portrom/images/odm/lib/libmindroid-framework.so \
-            build/portrom/images/odm/lib/vendor.oplus.hardware.subsys_radio-V1-ndk_platform.so \
-            build/portrom/images/odm/lib/vendor.oplus.hardware.subsys-V1-ndk_platform.so \
-            build/portrom/images/odm/lib64/vendor.oplus.hardware.subsys_radio-V1-ndk_platform.so \
-            build/portrom/images/odm/lib64/vendor.oplus.hardware.subsys-V1-ndk_platform.so
-			
-	    unzip -o devices/common/aod_fix_sm8350.zip -d ${work_dir}/build/portrom/images/
     fi
 
     if [[ ${base_android_version} == 14 ]]; then
@@ -788,12 +782,11 @@ if [[ -n $base_scanner_app ]] && [[ -n $target_scanner_app ]];then
     cp -rfv $base_scanner_app $target_scanner_app
 fi
 
-if [[ ${base_device_family} == "OPSM8250" ]]; then
-  camera_optimize_file=$(find build/portrom/images/ -type f -name "sys_camera_optimize_config.xml")
-  # Fix wechat /alipay scan crash issue
-   if [[ -f $camera_optimize_file ]]; then
-      rm -f $camera_optimize_file
-   fi
+# OnePlus 8 Pro camera optimization fix
+camera_optimize_file=$(find build/portrom/images/ -type f -name "sys_camera_optimize_config.xml")
+# Fix wechat /alipay scan crash issue for OnePlus 8 Pro
+if [[ -f $camera_optimize_file ]]; then
+   rm -f $camera_optimize_file
 fi
 sourceOvoiceManagerService=$(find build/baserom/images/my_product -type d -name "OVoiceManagerService")
 if [[ -d "$sourceOvoiceManagerService" ]];then
@@ -806,12 +799,12 @@ if [[ -d "$sourceOvoiceManagerService" ]];then
     fi
 fi
 
-if [[ ${base_product_device} == "OnePlus8T" ]];then 
-    # Voice_trigger for OnePlus 8T
+if [[ ${base_product_device} == "OnePlus8Pro" ]];then 
+    # Voice_trigger for OnePlus 8 Pro  
     add_feature "oplus.software.audio.voice_wakeup_support" build/portrom/images/my_product/etc/permissions/oplus.product.feature_multimedia_unique.xml
     add_feature "oplus.software.audio.voice_wakeup_3words_support" build/portrom/images/my_product/etc/extension/com.oplus.oplus-feature.xml
-    #add_feature "oplus.software.speechassist.oneshot.support" build/portrom/images/my_product/etc/extension/com.oplus.oplus-feature.xml
-    unzip -o ${work_dir}/devices/common/voice_trigger_fix.zip -d ${work_dir}/build/portrom/images/
+    # Add power-off charging fix for OnePlus 8 Pro
+    add_charging_fix_for_oneplus_8_pro
 fi
 
 
@@ -1114,11 +1107,9 @@ done
 echo "${pack_type}">fstype.txt
 if [[ $super_extended == true ]];then
     superSize=$(bash bin/getSuperSize.sh "others")
-elif [[ $base_product_model == "LE2101" ]]; then
-	# OnePlus 9R In is totally diff than OnePlus 9R CN
-    superSize=$(bash bin/getSuperSize.sh OnePlus8T)
 else
-superSize=$(bash bin/getSuperSize.sh $base_product_device)
+    # OnePlus 8 Pro specific super size
+    superSize=$(bash bin/getSuperSize.sh $base_product_device)
 fi
 
 green "Super大小为${superSize}" "Super image size: ${superSize}"
